@@ -6,6 +6,8 @@ so it lands early rather than alongside the rest of the demo data.
 
 **Blocked by:** 02
 
+**Owner:** Garfield
+
 **Status:** ready-for-agent
 
 - [ ] A command creates an admin account with known credentials

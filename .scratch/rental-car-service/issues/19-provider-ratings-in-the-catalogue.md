@@ -8,6 +8,8 @@ application-level counter update.
 
 **Blocked by:** 15
 
+**Owner:** Garfield
+
 **Status:** ready-for-agent
 
 - [ ] Every entry in the provider list carries an average rating and a review count

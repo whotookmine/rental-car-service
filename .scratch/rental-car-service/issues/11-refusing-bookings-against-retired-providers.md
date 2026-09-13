@@ -6,6 +6,8 @@ ones are taken.
 
 **Blocked by:** 07, 08
 
+**Owner:** Garfield
+
 **Status:** ready-for-agent
 
 - [ ] Creating a booking against a retired provider is refused as a conflict

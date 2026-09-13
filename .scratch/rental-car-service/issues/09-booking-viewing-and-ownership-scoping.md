@@ -7,6 +7,8 @@ renting.
 
 **Blocked by:** 08
 
+**Owner:** Time
+
 **Status:** ready-for-agent
 
 - [ ] A registered user lists their own bookings and only their own

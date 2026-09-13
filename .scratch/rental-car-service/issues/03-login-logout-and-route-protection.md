@@ -7,6 +7,8 @@ server-side, as recorded in the architecture decision on stateless tokens.
 
 **Blocked by:** 02
 
+**Owner:** Time
+
 **Status:** ready-for-agent
 
 - [ ] Login accepts email and password and returns an access token

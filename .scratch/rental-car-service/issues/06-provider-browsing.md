@@ -6,6 +6,8 @@ Average ratings are not part of this ticket — no reviews exist yet.
 
 **Blocked by:** 05
 
+**Owner:** Garfield
+
 **Status:** ready-for-agent
 
 - [ ] Any authenticated user lists all providers

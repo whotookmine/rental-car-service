@@ -7,6 +7,8 @@ option, and it must hold even for writes that bypass the API.
 
 **Blocked by:** 15
 
+**Owner:** Time
+
 **Status:** ready-for-agent
 
 - [ ] Deleting a booking that carries a review removes the review too

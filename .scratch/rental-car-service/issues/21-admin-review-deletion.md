@@ -7,6 +7,8 @@ afterwards.
 
 **Blocked by:** 15
 
+**Owner:** Garfield
+
 **Status:** ready-for-agent
 
 - [ ] An admin deletes any review, not only their own

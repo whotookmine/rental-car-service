@@ -8,6 +8,8 @@ booking rather than to either role.
 
 **Blocked by:** 15
 
+**Owner:** Time
+
 **Status:** ready-for-agent
 
 - [ ] Extending a reviewed booking so that its rental period would no longer be ended is

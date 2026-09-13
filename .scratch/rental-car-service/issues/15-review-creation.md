@@ -7,6 +7,8 @@ ended, and only once per booking.
 
 **Blocked by:** 14
 
+**Owner:** Garfield
+
 **Status:** ready-for-agent
 
 - [ ] The owner of a booking whose rental period has ended creates a review with a rating

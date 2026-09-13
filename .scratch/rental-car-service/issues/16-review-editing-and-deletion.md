@@ -8,6 +8,8 @@ is better for the data.
 
 **Blocked by:** 15
 
+**Owner:** Garfield
+
 **Status:** ready-for-agent
 
 - [ ] An author changes the rating and comment on their own review

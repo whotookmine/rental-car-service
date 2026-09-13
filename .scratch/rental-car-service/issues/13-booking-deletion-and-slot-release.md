@@ -6,6 +6,8 @@ and no soft delete for bookings.
 
 **Blocked by:** 10, 12
 
+**Owner:** Time
+
 **Status:** ready-for-agent
 
 - [ ] An owner deletes their own booking and it is gone from their list

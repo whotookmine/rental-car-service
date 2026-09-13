@@ -7,6 +7,8 @@ counting, so past rentals do not permanently consume the allowance.
 
 **Blocked by:** 08
 
+**Owner:** Time
+
 **Status:** ready-for-agent
 
 - [ ] A registered user can hold three active bookings

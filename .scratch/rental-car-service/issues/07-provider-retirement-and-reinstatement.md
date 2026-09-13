@@ -7,6 +7,8 @@ doing so would erase the rental history of everyone who ever booked with it.
 
 **Blocked by:** 06
 
+**Owner:** Garfield
+
 **Status:** ready-for-agent
 
 - [ ] An admin retires a provider using the delete verb; the record survives
