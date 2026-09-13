@@ -17,8 +17,15 @@ two people destroying each other's demo data.
 
 ## From a clean checkout
 
-Copy the example environment file first — its defaults already point at the Compose
-database, so nothing needs editing to get running:
+Install the dependencies into a virtual environment:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+Copy the example environment file — its defaults already point at the Compose database,
+so nothing needs editing to get running:
 
 ```bash
 cp .env.example .env
@@ -29,13 +36,6 @@ Then the two commands:
 ```bash
 docker compose up -d   # 1. bring the database up
 alembic upgrade head   # 2. run migrations
-```
-
-Install the dependencies into a virtual environment before step 2:
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
 ```
 
 ## Running the app

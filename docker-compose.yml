@@ -16,7 +16,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    restart: unless-stopped
+    # No restart policy on purpose: this is a development database, and it should
+    # not come back on its own every time the machine boots.
 
 volumes:
   rental_car_service_pgdata:
