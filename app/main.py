@@ -1,8 +1,11 @@
 """FastAPI application entry point."""
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 
+from app.auth.router import router as auth_router
 from app.core.config import get_settings
+from app.core.errors import validation_exception_handler
 from app.health.router import router as health_router
 
 # Read and validate configuration before the app object exists, so a missing or
@@ -20,4 +23,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Validation errors echo the offending value by default, which would put a
+# rejected password in the response body.
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
 app.include_router(health_router)
+app.include_router(auth_router)
