@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:16
+    container_name: rental-car-service-db
+    environment:
+      POSTGRES_USER: rental
+      POSTGRES_PASSWORD: rental
+      POSTGRES_DB: rental_car_service
+    ports:
+      - "5433:5432"
+    volumes:
+      - rental_car_service_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rental -d rental_car_service"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    # No restart policy on purpose: this is a development database, and it should
+    # not come back on its own every time the machine boots.
+
+volumes:
+  rental_car_service_pgdata:
