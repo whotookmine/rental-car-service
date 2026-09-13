@@ -8,7 +8,9 @@ Terminology lives in [CONTEXT.md](./CONTEXT.md), the agreed ruleset in
 
 ## Prerequisites
 
-- Python 3.11 or newer
+- [uv](https://docs.astral.sh/uv/) — manages the Python toolchain, the virtual
+  environment, and dependencies. It installs a suitable Python itself, so no separate
+  Python install is required.
 - Docker with Docker Compose v2
 
 No shared or cloud database is used. Each developer runs their own PostgreSQL through
@@ -17,11 +19,11 @@ two people destroying each other's demo data.
 
 ## From a clean checkout
 
-Install the dependencies into a virtual environment:
+Install the dependencies. `uv sync` creates `.venv` and installs the exact versions
+pinned in `uv.lock`, so everyone runs the same ones:
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
+uv sync
 ```
 
 Copy the example environment file — its defaults already point at the Compose database,
@@ -34,14 +36,16 @@ cp .env.example .env
 Then the two commands:
 
 ```bash
-docker compose up -d   # 1. bring the database up
-alembic upgrade head   # 2. run migrations
+docker compose up -d          # 1. bring the database up
+uv run alembic upgrade head   # 2. run migrations
 ```
+
+`uv run` executes inside the project environment, so there is nothing to activate.
 
 ## Running the app
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 - Health check: <http://127.0.0.1:8000/health> — returns `200` when the service is up
@@ -66,6 +70,13 @@ aborts startup.
 
 Alembic reads `DATABASE_URL` from the same settings object as the app; `alembic.ini`
 carries no URL of its own.
+
+## Dependencies
+
+Direct dependencies are declared in `pyproject.toml`; `uv.lock` pins the entire
+resolved tree and **is committed**, so both developers and any grader install byte-identical
+versions. Add a dependency with `uv add <package>`, which updates both files. Never
+`pip install` into `.venv` directly — it would drift from the lockfile.
 
 ## Layout
 
