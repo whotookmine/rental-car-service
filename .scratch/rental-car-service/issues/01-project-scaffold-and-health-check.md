@@ -6,8 +6,8 @@ PostgreSQL through Docker Compose rather than sharing a cloud instance, because 
 command wipes tables and a shared database would mean two people destroying each other's
 demo data. The database schema is reproducible from empty by running migrations, and the
 API's OpenAPI document can be imported into Postman as a working collection. Also lands
-the shared helper that every later date rule depends on: the current date computed in the configured business timezone, never from the
-system clock directly.
+the shared helper that every later date rule depends on: the current date computed in
+the configured business timezone, never from the system clock directly.
 
 **Blocked by:** None — can start immediately
 
