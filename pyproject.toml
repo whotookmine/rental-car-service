@@ -1,0 +1,21 @@
+[project]
+name = "rental-car-service"
+version = "0.1.0"
+description = "A web API through which registered users reserve cars from rental car providers."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.32,<0.33",
+    "sqlalchemy>=2.0.36,<2.1",
+    "alembic>=1.14,<1.15",
+    "psycopg[binary]>=3.2,<3.3",
+    "pydantic>=2.9,<3.0",
+    "pydantic-settings>=2.6,<3.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
