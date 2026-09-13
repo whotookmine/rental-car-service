@@ -81,8 +81,22 @@ No rule may call `date.today()` directly.
 ## Auth
 
 Stateless JWT, 60 minutes (`ACCESS_TOKEN_EXPIRE_MINUTES`), no refresh token. Logout is
-client-side; the endpoint exists and invalidates nothing. Passwords are bcrypt via
-passlib, minimum 8 characters, never returned. Registration returns a token directly.
+client-side; the endpoint exists and invalidates nothing. Passwords are hashed with
+bcrypt, minimum 8 characters and at most 72 bytes, never returned. Registration returns a
+token directly.
+
+The `bcrypt` library is used directly rather than through passlib, which this document
+originally named: passlib's last release was 2020 and its bcrypt backend fails outright
+against bcrypt 5.x, which it probes for a `__about__` attribute that no longer exists.
+The alternative was pinning an old bcrypt to keep passlib working, and the password
+hashing library is the last dependency worth freezing. The 72-byte ceiling is bcrypt's
+own limit, not a policy choice; over-long passwords are rejected as unprocessable rather
+than silently truncated.
+
+Validation errors never echo a rejected password. Pydantic reports the offending value
+alongside each error by default, which would put a plaintext password in a response body
+and from there into logs and proxies; a handler redacts it and changes nothing else about
+the error shape.
 
 ## Status codes
 
@@ -92,7 +106,9 @@ passlib, minimum 8 characters, never returned. Registration returns a token dire
 | Booking a retired provider | 409 |
 | Reviewing a booking that has not ended | 409 |
 | Reviewing a booking twice | 409 |
-| Malformed input (date order, rating range, max length) | 422 |
+| Registering an email that is already in use | 409 |
+| Malformed input (date order, rating range, max length, password length) | 422 |
+| Sending an unexpected field, such as `role`, on registration | 422 |
 | Acting on another user's booking | 404 |
 
 ## Seeding and testing
