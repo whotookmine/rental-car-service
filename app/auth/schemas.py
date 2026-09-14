@@ -53,6 +53,19 @@ class UserCreate(BaseModel):
         return value
 
 
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+    password: str = Field(min_length=1)
+
+    @field_validator("email")
+    @classmethod
+    def _lowercase_email(cls, value: str) -> str:
+        # Matches registration, so an address logs in whatever case it is typed.
+        return value.lower()
+
+
 class UserRead(BaseModel):
     """A user as the API reports them. Carries no password material by construction."""
 
@@ -72,3 +85,9 @@ class AuthResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: UserRead
+
+
+class LogoutResponse(BaseModel):
+    """Acknowledgement of a logout. Nothing changed server-side."""
+
+    message: str
