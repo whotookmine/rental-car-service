@@ -93,6 +93,11 @@ hashing library is the last dependency worth freezing. The 72-byte ceiling is bc
 own limit, not a policy choice; over-long passwords are rejected as unprocessable rather
 than silently truncated.
 
+`JWT_SECRET_KEY` must be at least 32 bytes, per RFC 7518 for HS256, and startup fails
+otherwise: a short signing key is brute-forceable, and a forged token would defeat every
+authorisation rule in the service. Logging in with an unknown email spends the same time
+as a wrong password, so registered addresses cannot be found by timing the refusal.
+
 Validation errors never echo a rejected password. Pydantic reports the offending value
 alongside each error by default, which would put a plaintext password in a response body
 and from there into logs and proxies; a handler redacts it and changes nothing else about
@@ -107,6 +112,8 @@ the error shape.
 | Reviewing a booking that has not ended | 409 |
 | Reviewing a booking twice | 409 |
 | Registering an email that is already in use | 409 |
+| Logging in with a wrong password or an unknown email | 401 (same response for both) |
+| A missing, malformed, expired, or forged access token | 401 |
 | Malformed input (date order, rating range, max length, password length) | 422 |
 | Sending an unexpected field, such as `role`, on registration | 422 |
 | Acting on another user's booking | 404 |

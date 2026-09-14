@@ -11,6 +11,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# RFC 7518 section 3.2, for HS256.
+MIN_JWT_SECRET_KEY_BYTES = 32
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -51,9 +54,17 @@ class Settings(BaseSettings):
 
     @field_validator("jwt_secret_key")
     @classmethod
-    def _jwt_secret_key_must_not_be_blank(cls, value: str) -> str:
+    def _jwt_secret_key_must_be_strong_enough(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("JWT_SECRET_KEY must not be empty")
+        # RFC 7518 section 3.2: an HMAC key should be at least as long as the
+        # hash it feeds. A short signing key is brute-forceable, and forging a
+        # token would then defeat every authorisation rule in the service.
+        if len(value.encode("utf-8")) < MIN_JWT_SECRET_KEY_BYTES:
+            raise ValueError(
+                f"JWT_SECRET_KEY must be at least {MIN_JWT_SECRET_KEY_BYTES} bytes long; "
+                'generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
         return value
 
     @field_validator("business_timezone")
