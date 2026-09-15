@@ -17,8 +17,28 @@ from app.core.config import get_settings
 ALGORITHM = "HS256"
 
 # bcrypt refuses anything longer; it is a property of the algorithm, not a
-# policy choice, so the schema rejects over-long passwords before they reach it.
+# policy choice, so callers reject over-long passwords before they reach it.
 MAX_PASSWORD_BYTES = 72
+
+# Policy, unlike the ceiling above. No complexity rules: they push people towards
+# predictable substitutions and buy little.
+MIN_PASSWORD_LENGTH = 8
+
+
+def validate_password(plain_password: str) -> str:
+    """Check a password against the rules every account must satisfy.
+
+    The single home for this rule. Registration and the admin provisioning
+    command both go through it, so the most privileged account in the service
+    cannot end up held to a weaker standard than an ordinary one.
+
+    Raises `ValueError` describing the first rule broken.
+    """
+    if len(plain_password) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"must be at least {MIN_PASSWORD_LENGTH} characters long")
+    if len(plain_password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        raise ValueError(f"must be at most {MAX_PASSWORD_BYTES} bytes long")
+    return plain_password
 
 
 # A real bcrypt digest of a value nobody knows, verified against when the email

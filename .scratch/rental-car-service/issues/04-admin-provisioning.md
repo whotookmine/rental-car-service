@@ -8,14 +8,30 @@ so it lands early rather than alongside the rest of the demo data.
 
 **Owner:** Garfield
 
-**Status:** ready-for-agent
+**Status:** done — merged to main, reviewed. All criteria verified against a running API.
 
-- [ ] A command creates an admin account with known credentials
-- [ ] The command is documented so that anyone setting the project up can run it
-- [ ] No API route can create an admin, promote a registered user, or change any user's
+- [x] A command creates an admin account with known credentials
+- [x] The command is documented so that anyone setting the project up can run it
+- [x] No API route can create an admin, promote a registered user, or change any user's
       role
-- [ ] The created admin can log in through the normal login endpoint and receives a token
+- [x] The created admin can log in through the normal login endpoint and receives a token
       like any other user
-- [ ] A reusable guard distinguishes admins from registered users and is available to
+- [x] A reusable guard distinguishes admins from registered users and is available to
       every later endpoint
-- [ ] Running the command twice does not create a duplicate admin
+- [x] Running the command twice does not create a duplicate admin
+
+## Notes
+
+- Verified live: the command creates an admin, running it twice leaves the existing
+  account untouched, the admin logs in through the normal login endpoint, and no API
+  route creates or promotes one.
+- `require_admin` lives in the auth package alongside `get_current_user` and returns 403,
+  not 404. The 404-over-403 rule applies to bookings, where a 403 would reveal that
+  someone else's booking exists; admin-only provider routes have nothing to hide.
+- Fixed after review: the command applied no password rule at all, so the most privileged
+  account in the service could be given a weaker password than any ordinary user, and an
+  over-long one reached bcrypt and raised a traceback. Both now go through the shared
+  `validate_password` rule that registration uses.
+- Still outstanding, belongs to ticket 14: the default credentials are committed and
+  nothing stops the command running when `ENV=production`. The seed script owes that guard
+  and this command should share it.

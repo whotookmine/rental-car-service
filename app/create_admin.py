@@ -9,12 +9,13 @@ Admins cannot be created through the API; this command is the only path.
 """
 
 import argparse
+import sys
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.models import User, UserRole
-from app.auth.security import hash_password
+from app.auth.security import hash_password, validate_password
 from app.db.session import engine
 
 DEFAULT_EMAIL = "admin@example.com"
@@ -29,6 +30,11 @@ def create_admin(
     name: str,
     telephone: str,
 ) -> None:
+    # The same rule registration applies. Without it the most privileged account
+    # in the service could be given a weaker password than any ordinary user,
+    # and an over-long one would reach bcrypt and raise.
+    validate_password(password)
+
     with Session(engine) as db:
         existing = db.scalar(select(User).where(User.email == email.lower()))
         if existing is not None:
@@ -58,9 +64,12 @@ if __name__ == "__main__":
     parser.add_argument("--telephone", default=DEFAULT_TELEPHONE, help="Admin telephone number")
     args = parser.parse_args()
 
-    create_admin(
-        email=args.email,
-        password=args.password,
-        name=args.name,
-        telephone=args.telephone,
-    )
+    try:
+        create_admin(
+            email=args.email,
+            password=args.password,
+            name=args.name,
+            telephone=args.telephone,
+        )
+    except ValueError as exc:
+        sys.exit(f"Refusing to create the admin: password {exc}")

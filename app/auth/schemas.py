@@ -5,7 +5,7 @@ import re
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.auth.models import UserRole
-from app.auth.security import MAX_PASSWORD_BYTES
+from app.auth.security import validate_password
 
 # Loose on purpose: non-empty, digits with optional spaces, hyphens, and a
 # leading plus. No country-specific rules.
@@ -20,7 +20,7 @@ class UserCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     telephone: str = Field(min_length=1, max_length=40)
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str
 
     @field_validator("name", "telephone")
     @classmethod
@@ -47,10 +47,9 @@ class UserCreate(BaseModel):
 
     @field_validator("password")
     @classmethod
-    def _password_within_bcrypt_limit(cls, value: str) -> str:
-        if len(value.encode("utf-8")) > MAX_PASSWORD_BYTES:
-            raise ValueError(f"must be at most {MAX_PASSWORD_BYTES} bytes long")
-        return value
+    def _password_meets_the_shared_rule(cls, value: str) -> str:
+        # Delegates so that registration and app.create_admin cannot drift apart.
+        return validate_password(value)
 
 
 class LoginRequest(BaseModel):
