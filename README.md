@@ -42,6 +42,25 @@ uv run alembic upgrade head   # 2. run migrations
 
 `uv run` executes inside the project environment, so there is nothing to activate.
 
+## Admin account
+
+Admins cannot be created through the API. Use the provisioning command instead:
+
+```bash
+uv run python -m app.create_admin
+```
+
+This creates an admin with email `admin@example.com` and password `admin1234`. Running
+the command again with the same email is safe — it prints a message and exits without
+making changes. To use different credentials:
+
+```bash
+uv run python -m app.create_admin --email you@example.com --password yourpassword
+```
+
+The admin can then log in through `POST /auth/login` and receives a token like any other
+user. Only admins may create and edit providers.
+
 ## Running the app
 
 ```bash

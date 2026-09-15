@@ -11,7 +11,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.auth.models import User
+from app.auth.models import User, UserRole
 from app.auth.security import read_access_token
 from app.db.session import get_db
 
@@ -51,3 +51,13 @@ def get_current_user(
         raise _unauthenticated()
 
     return user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Return the current user only if they are an admin; 403 otherwise."""
+    if current_user.role != UserRole.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
+    return current_user
