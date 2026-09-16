@@ -36,22 +36,28 @@ the configured business timezone, never from the system clock directly.
       imports every model so migration autogeneration sees all tables
 - [x] A shared helper returns today's date in the configured business timezone; no other
       code computes the current date directly
-- [ ] The OpenAPI document is served and imports into Postman without errors
-      — **still open, and the only unverified criterion on any closed ticket.** The
-      document is served and is valid OpenAPI 3.1.0. The import itself needs a human
-      with Postman; nothing here can close it.
-
-      An earlier note suggested that if the import failed, the fix was to pin the
-      emitted version to 3.0.x. **That was checked and is wrong.** Setting
-      `openapi_version = "3.0.3"` changes the version string but leaves the schema
-      3.1-shaped: optional fields still render as `"anyOf": [..., {"type": "null"}]`,
-      and `type: null` does not exist in 3.0, which uses `nullable: true`. The result
-      is a document that claims 3.0 and is invalid against it — worse than an honest
-      3.1 one. Four such `anyOf` blocks exist today, all from the optional fields on
-      provider editing.
-
-      If Postman does reject it, the real options are to convert the document with a
-      3.1-to-3.0 tool, or to build the collection by hand — which is what ticket 22
-      does regardless. So this is a convenience, not a blocker.
+- [x] The OpenAPI document is served and imports into Postman without errors
 - [x] Responses are snake_case bare resources with the framework's default error shape;
       no success/data envelope
+
+### The Postman import, finally verified
+
+Confirmed by hand on 2026-09-17: Postman imports the served document without errors and
+produces a collection. This was the only unverified criterion on any closed ticket, open
+since this ticket first shipped.
+
+The concern behind it turned out to be unfounded. FastAPI emits OpenAPI **3.1.0**, and
+Postman's support for 3.1 had historically lagged 3.0, so the import was left unticked
+rather than claimed. Current Postman accepts it.
+
+Two things that follow:
+
+- The contingency plan recorded here earlier — pinning the emitted version to 3.0.x — is
+  moot, and was wrong anyway: it leaves the schema 3.1-shaped, with optional fields still
+  rendered as `anyOf` containing `type: null`, which 3.0 has no concept of.
+- **Ticket 22 can start from the generated collection** rather than building sixteen
+  requests by hand. The import is only a scaffold: it carries every endpoint with the right
+  method and path, but placeholder bodies, no captured token, static dates and no
+  assertions. The variables, pre-request date scripts, token capture and negative cases are
+  still that ticket's work.
+
