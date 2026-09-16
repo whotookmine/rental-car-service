@@ -36,7 +36,9 @@ No rule may call `date.today()` directly.
 - `start_date` must not be in the past **on creation**. Updates may touch past dates, so
   that a booking already underway can be extended and an admin can correct history.
 - A registered user may hold at most 3 **active** bookings (rental period not yet ended).
-  Deleting a booking frees a slot immediately.
+  Deleting a booking frees a slot immediately. The check locks the owner's row before
+  counting, so two simultaneous requests cannot both see a free slot and both take it —
+  this is the transaction ADR 0001 cited when choosing PostgreSQL.
 - Overlapping bookings by the same user are allowed. With no vehicle inventory they
   contradict nothing, and the active cap already bounds abuse.
 - Only the dates are mutable, for owner and admin alike. The provider is fixed at
@@ -49,7 +51,9 @@ No rule may call `date.today()` directly.
 - A booking that has a review cannot be edited such that its rental period would no
   longer be ended (409). This applies to owners and admins alike; it keeps every review
   in the table attached to a finished rental.
-- Admins do not hold bookings.
+- Admins do not hold bookings. `POST /providers/{id}/bookings` refuses an admin caller
+  with 403. The cap is a rule about a renter's behaviour and admin oversight is defined as
+  acting on other people's bookings; an admin holding their own would make both ambiguous.
 
 ### Reviews
 
@@ -64,7 +68,11 @@ No rule may call `date.today()` directly.
 ### Providers
 
 - `GET /providers` excludes retired providers and carries `average_rating` and
-  `review_count` for each.
+  `review_count` for each. An admin may pass `include_retired=true` to see retired
+  providers as well; the same parameter from a registered user is ignored, so retired
+  providers never reach them.
+- `POST /providers/{id}/reinstate` returns a retired provider to the catalogue. Retirement
+  is reversible, per ADR 0004.
 - `average_rating` is computed on read by aggregation, never stored. A provider with no
   reviews returns `null`, not `0`. Rounded to one decimal place in responses, stored at
   full precision.
@@ -117,6 +125,8 @@ the error shape.
 | Malformed input (date order, rating range, max length, password length) | 422 |
 | Sending an unexpected field, such as `role`, on registration | 422 |
 | Acting on another user's booking | 404 |
+| An admin trying to create a booking of their own | 403 |
+| A path id larger than an integer primary key can hold | 422 |
 
 ## Seeding and testing
 

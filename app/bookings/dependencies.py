@@ -7,7 +7,7 @@ identifier is real and someone else's, which is enough to count how much other
 people are renting by walking the identifiers.
 """
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -25,7 +25,9 @@ def booking_not_found() -> HTTPException:
 
 
 def get_own_booking_or_404(
-    booking_id: int,
+    # Bounded for the same reason as provider ids: a larger number would reach
+    # PostgreSQL and raise, turning a promised 404 into a 500.
+    booking_id: int = Path(ge=1, le=2147483647),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Booking:

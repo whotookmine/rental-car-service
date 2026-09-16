@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from sqlalchemy import select
 
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_registered_user
 from app.auth.models import User
 from app.bookings.dependencies import get_own_booking_or_404
 from app.bookings.models import Booking
@@ -29,15 +29,16 @@ router = APIRouter(tags=["bookings"])
         "for the life of the booking."
     ),
     responses={
+        403: {"description": "Admins do not hold bookings."},
         404: {"description": "Provider not found."},
         409: {"description": "The user already holds the maximum active bookings."},
     },
 )
 def create_booking(
     payload: BookingCreate,
+    current_user: User = Depends(require_registered_user),
     provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ) -> BookingRead:
     ensure_room_for_another_booking(db, current_user.id)
 

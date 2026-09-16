@@ -61,3 +61,20 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
             detail="Admin access required.",
         )
     return current_user
+
+
+def require_registered_user(current_user: User = Depends(get_current_user)) -> User:
+    """Return the current user only if they are a registered user, not an admin.
+
+    Admins manage; they do not rent. `CONTEXT.md` and `docs/SPEC.md` both say so,
+    and the rest of the model leans on it — the active-booking cap is a rule about
+    a renter's behaviour, and admin oversight is defined as acting on *other*
+    people's bookings. An admin holding bookings of their own would make both
+    ambiguous.
+    """
+    if current_user.role == UserRole.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admins do not hold bookings.",
+        )
+    return current_user

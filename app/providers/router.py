@@ -13,6 +13,12 @@ from app.providers.schemas import ProviderCreate, ProviderRead, ProviderUpdate
 
 router = APIRouter(prefix="/providers", tags=["providers"])
 
+# Note for anyone editing the admin-only routes below: `require_admin` is
+# declared before `get_provider_or_404` on purpose. FastAPI resolves parameter
+# dependencies in the order they appear, so putting the lookup first would answer
+# 404 for a provider that does not exist before checking whether the caller is
+# allowed to be asking at all.
+
 
 @router.get(
     "",
@@ -80,9 +86,9 @@ def create_provider(
 )
 def update_provider(
     payload: ProviderUpdate,
+    _admin: User = Depends(require_admin),
     provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
 ) -> ProviderRead:
     if payload.name is not None:
         provider.name = payload.name
@@ -107,9 +113,9 @@ def update_provider(
     responses={404: {"description": "Provider not found."}},
 )
 def retire_provider(
+    _admin: User = Depends(require_admin),
     provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
 ) -> ProviderRead:
     provider.is_retired = True
     db.commit()
@@ -124,9 +130,9 @@ def retire_provider(
     responses={404: {"description": "Provider not found."}},
 )
 def reinstate_provider(
+    _admin: User = Depends(require_admin),
     provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
 ) -> ProviderRead:
     provider.is_retired = False
     db.commit()

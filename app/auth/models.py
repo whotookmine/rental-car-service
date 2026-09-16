@@ -11,8 +11,8 @@ from app.db.base_class import Base
 class UserRole(str, enum.Enum):
     """Who someone is. Registered users book and review; admins manage.
 
-    A user's role is never taken from a request body. Admins exist only because
-    the seed command created them.
+    A user's role is never taken from a request body. No route creates an admin or
+    changes anyone's role; the only path is the `app.create_admin` command.
     """
 
     user = "user"

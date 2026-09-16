@@ -50,3 +50,20 @@ A first draft gave the count an `excluding_booking_id` parameter so ticket 12 co
 the booking being re-dated. Nothing in this ticket used it. That is speculative generality
 — a hook for a need that does not exist yet — and it was taken out. Ticket 12 should add it
 when it is real.
+
+### Corrected after audit
+
+The cap shipped as a plain count-then-insert with no lock, at READ COMMITTED. ADR 0001
+names that exact race as one of the three reasons this project chose PostgreSQL, so the
+transaction the decision promised was never actually taken.
+
+It is now real rather than theoretical. Simulating two concurrent attempts from a user
+holding two active bookings: **without** the lock both insert and the user ends with four
+active bookings; **with** it, one inserts, the other is refused 409, and the user ends with
+three. `ensure_room_for_another_booking` locks the owner's row with `SELECT ... FOR UPDATE`
+before counting, so everything that changes one owner's booking count is serialised. The
+lock is on the user rather than on bookings because the thing being protected is a property
+of the user, and a row that does not exist yet cannot be locked.
+
+Note that a burst of ten simultaneous HTTP requests did **not** reproduce the race — the
+window is narrow. Absence of a reproduction over HTTP was not evidence of safety.

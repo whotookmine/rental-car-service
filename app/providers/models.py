@@ -1,4 +1,4 @@
-"""The Provider model: a rental car company available for booking."""
+"""The Provider model: a business that rents out cars, available for booking."""
 
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
