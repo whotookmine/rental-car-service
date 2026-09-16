@@ -24,3 +24,11 @@ application-level counter update.
 - [ ] Deleting a booking that carried a review moves the figures
 - [ ] Retired providers keep their figures, visible when fetched by identifier
 - [ ] The list is served by a single query rather than one query per provider
+
+## Note from ticket 08
+
+`GET /providers` currently has no `ORDER BY`, so rows come back in whatever order
+PostgreSQL returns them, and that order visibly changes between runs. This ticket rebuilds
+that query to add the rating aggregate, so it is the natural place to give the list a
+stable order. Without one, ticket 22's Postman assertions on list contents will be flaky.
+

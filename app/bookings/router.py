@@ -1,6 +1,6 @@
 """Bookings. Creation is nested under the provider a booking is made with."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -8,6 +8,7 @@ from app.auth.models import User
 from app.bookings.models import Booking
 from app.bookings.schemas import BookingCreate, BookingRead
 from app.db.session import get_db
+from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
 
 router = APIRouter(tags=["bookings"])
@@ -26,18 +27,11 @@ router = APIRouter(tags=["bookings"])
     responses={404: {"description": "Provider not found."}},
 )
 def create_booking(
-    provider_id: int,
     payload: BookingCreate,
+    provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> BookingRead:
-    provider = db.get(Provider, provider_id)
-    if provider is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found.",
-        )
-
     booking = Booking(
         # From the token. A caller cannot book on someone else's behalf by
         # naming them, because the request has no say in who owns this.
