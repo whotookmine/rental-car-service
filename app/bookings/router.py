@@ -10,7 +10,8 @@ from app.auth.models import User
 from app.bookings.dependencies import get_own_booking_or_404
 from app.bookings.models import Booking
 from app.bookings.rules import ensure_room_for_another_booking
-from app.bookings.schemas import BookingCreate, BookingRead
+from app.bookings.schemas import BookingCreate, BookingRead, BookingUpdate
+from app.core.clock import today
 from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
@@ -95,4 +96,41 @@ def list_bookings(
 def get_booking(
     booking: Booking = Depends(get_own_booking_or_404),
 ) -> BookingRead:
+    return BookingRead.model_validate(booking)
+
+
+@router.put(
+    "/bookings/{booking_id}",
+    response_model=BookingRead,
+    summary="Change the dates of one of your own bookings",
+    description=(
+        "Replaces the rental period. The same shape rules as creation apply — end "
+        "on or after start, at most thirty days — but a start date in the past is "
+        "allowed here, so a rental already underway can be extended. The provider "
+        "cannot be changed: sending one is refused, not ignored."
+    ),
+    responses={
+        404: {"description": "Booking not found."},
+        409: {"description": "The owner already holds the maximum active bookings."},
+    },
+)
+def update_booking(
+    payload: BookingUpdate,
+    booking: Booking = Depends(get_own_booking_or_404),
+    db: Session = Depends(get_db),
+) -> BookingRead:
+    # Only re-check the cap when the edit would leave the booking active. A
+    # booking that has ended and stays ended occupies no slot, so an owner at the
+    # limit must still be able to correct its dates. The booking is excluded from
+    # its own count, or an owner holding the maximum could never edit any of them.
+    if payload.end_date >= today():
+        ensure_room_for_another_booking(
+            db, booking.user_id, excluding_booking_id=booking.id
+        )
+
+    booking.start_date = payload.start_date
+    booking.end_date = payload.end_date
+    db.commit()
+    db.refresh(booking)
+
     return BookingRead.model_validate(booking)
