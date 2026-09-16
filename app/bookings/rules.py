@@ -20,22 +20,28 @@ from app.core.clock import today
 MAX_ACTIVE_BOOKINGS = 3
 
 
-def count_active_bookings(db: Session, user_id: int) -> int:
+def count_active_bookings(
+    db: Session, user_id: int, *, excluding_booking_id: int | None = None
+) -> int:
     """How many active bookings a user holds.
 
     A booking is active while its rental period has not ended, so one ending
     today still counts and one that ended yesterday does not. `today` comes from
     the business timezone, never the system clock: seven hours from UTC is enough
     to move a booking across the boundary for part of every day.
+
+    `excluding_booking_id` leaves one booking out. Re-dating needs it: the
+    booking being changed must not be counted against itself, or a user holding
+    the maximum could never edit any of them.
     """
-    return (
-        db.scalar(
-            select(func.count())
-            .select_from(Booking)
-            .where(Booking.user_id == user_id, Booking.end_date >= today())
-        )
-        or 0
+    stmt = (
+        select(func.count())
+        .select_from(Booking)
+        .where(Booking.user_id == user_id, Booking.end_date >= today())
     )
+    if excluding_booking_id is not None:
+        stmt = stmt.where(Booking.id != excluding_booking_id)
+    return db.scalar(stmt) or 0
 
 
 def too_many_active_bookings() -> HTTPException:
@@ -48,7 +54,9 @@ def too_many_active_bookings() -> HTTPException:
     )
 
 
-def ensure_room_for_another_booking(db: Session, user_id: int) -> None:
+def ensure_room_for_another_booking(
+    db: Session, user_id: int, *, excluding_booking_id: int | None = None
+) -> None:
     """Raise 409 if the owner is already at the cap.
 
     Counting and then inserting is a race: two requests can both read two active
@@ -64,5 +72,8 @@ def ensure_room_for_another_booking(db: Session, user_id: int) -> None:
     """
     db.execute(select(User.id).where(User.id == user_id).with_for_update())
 
-    if count_active_bookings(db, user_id) >= MAX_ACTIVE_BOOKINGS:
+    if (
+        count_active_bookings(db, user_id, excluding_booking_id=excluding_booking_id)
+        >= MAX_ACTIVE_BOOKINGS
+    ):
         raise too_many_active_bookings()
