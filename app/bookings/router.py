@@ -1,6 +1,6 @@
 """Bookings. Creation is nested under the provider a booking is made with."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from sqlalchemy import select
@@ -134,3 +134,24 @@ def update_booking(
     db.refresh(booking)
 
     return BookingRead.model_validate(booking)
+
+
+@router.delete(
+    "/bookings/{booking_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete one of your own bookings",
+    description=(
+        "Removes the booking outright. There is no cancelled state and no soft "
+        "delete: the row is gone, and the slot it occupied is free immediately. "
+        "Answers 404 for a booking belonging to another user, exactly as for one "
+        "that does not exist."
+    ),
+    responses={404: {"description": "Booking not found."}},
+)
+def delete_booking(
+    booking: Booking = Depends(get_own_booking_or_404),
+    db: Session = Depends(get_db),
+) -> Response:
+    db.delete(booking)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
