@@ -17,7 +17,7 @@ Ordering the parameters differently would also work and would break the moment
 someone reordered them.
 """
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -27,7 +27,10 @@ from app.providers.models import Provider
 
 
 def get_provider_or_404(
-    provider_id: int,
+    # Bounded to what an integer primary key can hold. Without this, a larger
+    # number reaches PostgreSQL and raises NumericValueOutOfRange, which surfaces
+    # as a 500 instead of the 404 this route promises.
+    provider_id: int = Path(ge=1, le=2147483647),
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ) -> Provider:

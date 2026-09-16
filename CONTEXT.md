@@ -20,7 +20,7 @@ three active bookings; deleting a booking frees a slot immediately.
 _Avoid_: Open booking, current booking, pending booking
 
 **Provider**:
-A rental car company that bookings are made against and that users rate. Identified by
+A business that rents out cars, which bookings are made against and users rate. Identified by
 a name, address, and telephone number. Individual vehicles are not modelled.
 _Avoid_: Rental car provider, shop, vendor, company, hospital
 

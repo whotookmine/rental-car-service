@@ -66,3 +66,20 @@ Ticket 09 changed `BookingRead` to nest the full provider instead of a bare `pro
 so that a booking reports who it is with wherever it appears. Creation returns that shape
 too. Behaviour here is unchanged and was re-verified after the change.
 
+### Corrected after audit
+
+Two problems in this ticket's code, both found by audit rather than by the original review:
+
+- **Admins could hold bookings.** `docs/SPEC.md` and `CONTEXT.md` both say they do not, and
+  nothing enforced it — an admin token created a booking successfully. Creation now depends
+  on `require_registered_user` and refuses an admin with 403.
+- **An out-of-range integer id returned 500.** A path id larger than an integer primary key
+  can hold reached PostgreSQL and raised `NumericValueOutOfRange`, breaking the uniform
+  error contract. Provider and booking id path parameters are now bounded, so those answer
+  422.
+
+Also corrected here: the `get_provider_or_404` extraction made by this ticket's closeout
+left `require_admin` resolving *after* the lookup on admin-only provider routes, so a
+registered user hitting a missing provider saw 404 before 403 — the mirror image of the
+401-before-404 discipline the same commit was written to establish. The admin check now
+comes first, with a comment on the router saying why the order matters.

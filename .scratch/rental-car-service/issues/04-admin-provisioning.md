@@ -35,3 +35,10 @@ so it lands early rather than alongside the rest of the demo data.
 - Still outstanding, belongs to ticket 14: the default credentials are committed and
   nothing stops the command running when `ENV=production`. The seed script owes that guard
   and this command should share it.
+
+### Corrected after audit
+
+The docstring in `app/auth/models.py` claimed admins exist "only because the seed command
+created them". There is no seed command yet — that is ticket 14 — and admins come from
+`app.create_admin`. The comment now says so, since it was misdirecting a reader about the
+only privileged-account path in the service.
