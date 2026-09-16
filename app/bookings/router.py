@@ -9,6 +9,7 @@ from app.auth.dependencies import get_current_user
 from app.auth.models import User
 from app.bookings.dependencies import get_own_booking_or_404
 from app.bookings.models import Booking
+from app.bookings.rules import ensure_room_for_another_booking
 from app.bookings.schemas import BookingCreate, BookingRead
 from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
@@ -27,7 +28,10 @@ router = APIRouter(tags=["bookings"])
         "of the path because a booking cannot exist without one, and it is fixed "
         "for the life of the booking."
     ),
-    responses={404: {"description": "Provider not found."}},
+    responses={
+        404: {"description": "Provider not found."},
+        409: {"description": "The user already holds the maximum active bookings."},
+    },
 )
 def create_booking(
     payload: BookingCreate,
@@ -35,6 +39,8 @@ def create_booking(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> BookingRead:
+    ensure_room_for_another_booking(db, current_user.id)
+
     booking = Booking(
         # From the token. A caller cannot book on someone else's behalf by
         # naming them, because the request has no say in who owns this.
