@@ -44,18 +44,37 @@ def count_active_bookings(
     return db.scalar(stmt) or 0
 
 
-def too_many_active_bookings() -> HTTPException:
+def too_many_active_bookings(*, owner_is_caller: bool) -> HTTPException:
+    """The refusal, worded for whoever is reading it.
+
+    An admin editing someone else's booking is told about that booking's owner,
+    not addressed as though the bookings were theirs. The rule is the same either
+    way; only the sentence changes.
+    """
+    if owner_is_caller:
+        subject = f"You already hold {MAX_ACTIVE_BOOKINGS} active bookings."
+        remedy = "Delete one, or wait for a rental period to end, before booking again."
+    else:
+        subject = (
+            f"The owner of this booking already holds {MAX_ACTIVE_BOOKINGS} "
+            "active bookings."
+        )
+        remedy = (
+            "One of theirs must be deleted, or a rental period must end, before "
+            "this booking can be active."
+        )
+
     return HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail=(
-            f"You already hold {MAX_ACTIVE_BOOKINGS} active bookings. "
-            "Delete one, or wait for a rental period to end, before booking again."
-        ),
+        status_code=status.HTTP_409_CONFLICT, detail=f"{subject} {remedy}"
     )
 
 
 def ensure_room_for_another_booking(
-    db: Session, user_id: int, *, excluding_booking_id: int | None = None
+    db: Session,
+    user_id: int,
+    *,
+    excluding_booking_id: int | None = None,
+    owner_is_caller: bool = True,
 ) -> None:
     """Raise 409 if the owner is already at the cap.
 
@@ -76,4 +95,4 @@ def ensure_room_for_another_booking(
         count_active_bookings(db, user_id, excluding_booking_id=excluding_booking_id)
         >= MAX_ACTIVE_BOOKINGS
     ):
-        raise too_many_active_bookings()
+        raise too_many_active_bookings(owner_is_caller=owner_is_caller)

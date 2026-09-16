@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.auth.dependencies import get_current_user, require_registered_user
-from app.auth.models import User
-from app.bookings.dependencies import get_own_booking_or_404
+from app.auth.models import User, UserRole
+from app.bookings.dependencies import get_visible_booking_or_404
 from app.bookings.models import Booking
 from app.bookings.rules import ensure_room_for_another_booking
 from app.bookings.schemas import BookingCreate, BookingRead, BookingUpdate
@@ -61,32 +61,34 @@ def create_booking(
 @router.get(
     "/bookings",
     response_model=list[BookingRead],
-    summary="List your own bookings",
+    summary="List bookings visible to you",
     description=(
-        "Returns the calling user's bookings, oldest rental period first. A user "
-        "with no bookings receives an empty list."
+        "A registered user receives their own bookings; an admin receives every "
+        "booking in the system. Oldest rental period first. A user with no "
+        "bookings receives an empty list."
     ),
 )
 def list_bookings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[BookingRead]:
-    # Scoped to the caller in the query itself, so there is no way to widen it by
-    # passing something. Ordered explicitly: without it PostgreSQL returns rows
-    # in whatever order it likes, and that order changes between runs.
-    bookings = db.scalars(
-        select(Booking)
-        .where(Booking.user_id == current_user.id)
-        .order_by(Booking.start_date, Booking.id)
-    ).unique()
-    return [BookingRead.model_validate(b) for b in bookings]
+    # Scope is decided here from the caller's role and applied in the query, so
+    # there is no parameter a caller could pass to widen it. Ordered explicitly:
+    # without it PostgreSQL returns rows in whatever order it likes, and that
+    # order changes between runs.
+    stmt = select(Booking).order_by(Booking.start_date, Booking.id)
+    if current_user.role != UserRole.admin:
+        stmt = stmt.where(Booking.user_id == current_user.id)
+
+    return [BookingRead.model_validate(b) for b in db.scalars(stmt).unique()]
 
 
 @router.get(
     "/bookings/{booking_id}",
     response_model=BookingRead,
-    summary="Fetch one of your own bookings",
+    summary="Fetch a booking",
     description=(
+        "A registered user may fetch their own bookings; an admin may fetch any. "
         "Answers 404 both for a booking that does not exist and for one belonging "
         "to another user, so that booking identifiers cannot be walked to measure "
         "how much other people are renting."
@@ -94,7 +96,7 @@ def list_bookings(
     responses={404: {"description": "Booking not found."}},
 )
 def get_booking(
-    booking: Booking = Depends(get_own_booking_or_404),
+    booking: Booking = Depends(get_visible_booking_or_404),
 ) -> BookingRead:
     return BookingRead.model_validate(booking)
 
@@ -102,7 +104,7 @@ def get_booking(
 @router.put(
     "/bookings/{booking_id}",
     response_model=BookingRead,
-    summary="Change the dates of one of your own bookings",
+    summary="Change the dates of a booking",
     description=(
         "Replaces the rental period. The same shape rules as creation apply — end "
         "on or after start, at most thirty days — but a start date in the past is "
@@ -116,8 +118,9 @@ def get_booking(
 )
 def update_booking(
     payload: BookingUpdate,
-    booking: Booking = Depends(get_own_booking_or_404),
+    booking: Booking = Depends(get_visible_booking_or_404),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> BookingRead:
     # Only re-check the cap when the edit would leave the booking active. A
     # booking that has ended and stays ended occupies no slot, so an owner at the
@@ -125,7 +128,12 @@ def update_booking(
     # its own count, or an owner holding the maximum could never edit any of them.
     if payload.end_date >= today():
         ensure_room_for_another_booking(
-            db, booking.user_id, excluding_booking_id=booking.id
+            db,
+            booking.user_id,
+            excluding_booking_id=booking.id,
+            # An admin may be editing someone else's booking; the refusal should
+            # say whose limit was reached rather than address them as the owner.
+            owner_is_caller=booking.user_id == current_user.id,
         )
 
     booking.start_date = payload.start_date
@@ -139,7 +147,7 @@ def update_booking(
 @router.delete(
     "/bookings/{booking_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete one of your own bookings",
+    summary="Delete a booking",
     description=(
         "Removes the booking outright. There is no cancelled state and no soft "
         "delete: the row is gone, and the slot it occupied is free immediately. "
@@ -149,7 +157,7 @@ def update_booking(
     responses={404: {"description": "Booking not found."}},
 )
 def delete_booking(
-    booking: Booking = Depends(get_own_booking_or_404),
+    booking: Booking = Depends(get_visible_booking_or_404),
     db: Session = Depends(get_db),
 ) -> Response:
     db.delete(booking)
