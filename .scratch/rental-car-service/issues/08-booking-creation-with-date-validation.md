@@ -56,9 +56,12 @@ they already exist:
   two of them: re-dating shares date ordering and the thirty-day maximum, and deliberately
   does not share the no-past-dates rule. `rental_period_days` and `MAX_RENTAL_DAYS` are
   module-level so that split stays cheap.
-- The `db.get(Provider, ...)` then 404 block now appears six times across the providers and
-  bookings packages. Extracting a shared `get_provider_or_404` dependency is the obvious
-  cleanup; it was left alone here because it edits a teammate's module mid-ticket.
+- The `db.get(Provider, ...)` then 404 block appeared six times across the providers and
+  bookings packages. It was left alone in the first commit because extracting it edits a
+  teammate's module mid-ticket; it **was** extracted in this ticket's closeout once that
+  was agreed, into `get_provider_or_404`, and is now the single home for the lookup.
+  See "Corrected after audit" below for the leak that extraction introduced and how it was
+  closed.
 
 ### Later change
 

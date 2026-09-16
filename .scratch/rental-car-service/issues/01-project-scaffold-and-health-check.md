@@ -37,9 +37,21 @@ the configured business timezone, never from the system clock directly.
 - [x] A shared helper returns today's date in the configured business timezone; no other
       code computes the current date directly
 - [ ] The OpenAPI document is served and imports into Postman without errors
-      — **partly done.** The document is served and is valid OpenAPI 3.1.0, but the
-      Postman import itself has not been tried. FastAPI emits 3.1.0 and Postman's
-      support for 3.1 has lagged 3.0; if the import fails, pin the emitted OpenAPI
-      version to 3.0.x. Verify before starting ticket 22, which depends on it.
+      — **still open, and the only unverified criterion on any closed ticket.** The
+      document is served and is valid OpenAPI 3.1.0. The import itself needs a human
+      with Postman; nothing here can close it.
+
+      An earlier note suggested that if the import failed, the fix was to pin the
+      emitted version to 3.0.x. **That was checked and is wrong.** Setting
+      `openapi_version = "3.0.3"` changes the version string but leaves the schema
+      3.1-shaped: optional fields still render as `"anyOf": [..., {"type": "null"}]`,
+      and `type: null` does not exist in 3.0, which uses `nullable: true`. The result
+      is a document that claims 3.0 and is invalid against it — worse than an honest
+      3.1 one. Four such `anyOf` blocks exist today, all from the optional fields on
+      provider editing.
+
+      If Postman does reject it, the real options are to convert the document with a
+      3.1-to-3.0 tool, or to build the collection by hand — which is what ticket 22
+      does regardless. So this is a convenience, not a blocker.
 - [x] Responses are snake_case bare resources with the framework's default error shape;
       no success/data envelope
