@@ -59,3 +59,10 @@ they already exist:
 - The `db.get(Provider, ...)` then 404 block now appears six times across the providers and
   bookings packages. Extracting a shared `get_provider_or_404` dependency is the obvious
   cleanup; it was left alone here because it edits a teammate's module mid-ticket.
+
+### Later change
+
+Ticket 09 changed `BookingRead` to nest the full provider instead of a bare `provider_id`,
+so that a booking reports who it is with wherever it appears. Creation returns that shape
+too. Behaviour here is unchanged and was re-verified after the change.
+

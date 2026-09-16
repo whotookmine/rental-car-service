@@ -3,8 +3,11 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from sqlalchemy import select
+
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
+from app.bookings.dependencies import get_own_booking_or_404
 from app.bookings.models import Booking
 from app.bookings.schemas import BookingCreate, BookingRead
 from app.db.session import get_db
@@ -44,4 +47,45 @@ def create_booking(
     db.commit()
     db.refresh(booking)
 
+    return BookingRead.model_validate(booking)
+
+
+@router.get(
+    "/bookings",
+    response_model=list[BookingRead],
+    summary="List your own bookings",
+    description=(
+        "Returns the calling user's bookings, oldest rental period first. A user "
+        "with no bookings receives an empty list."
+    ),
+)
+def list_bookings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[BookingRead]:
+    # Scoped to the caller in the query itself, so there is no way to widen it by
+    # passing something. Ordered explicitly: without it PostgreSQL returns rows
+    # in whatever order it likes, and that order changes between runs.
+    bookings = db.scalars(
+        select(Booking)
+        .where(Booking.user_id == current_user.id)
+        .order_by(Booking.start_date, Booking.id)
+    ).unique()
+    return [BookingRead.model_validate(b) for b in bookings]
+
+
+@router.get(
+    "/bookings/{booking_id}",
+    response_model=BookingRead,
+    summary="Fetch one of your own bookings",
+    description=(
+        "Answers 404 both for a booking that does not exist and for one belonging "
+        "to another user, so that booking identifiers cannot be walked to measure "
+        "how much other people are renting."
+    ),
+    responses={404: {"description": "Booking not found."}},
+)
+def get_booking(
+    booking: Booking = Depends(get_own_booking_or_404),
+) -> BookingRead:
     return BookingRead.model_validate(booking)
