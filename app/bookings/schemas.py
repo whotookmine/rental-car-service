@@ -5,6 +5,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.core.clock import today
+from app.providers.schemas import ProviderRead
 
 # A rental period is counted inclusively: a booking from the 1st to the 30th is
 # thirty days, not twenty-nine. The cap exists so that one booking cannot occupy
@@ -48,6 +49,9 @@ class BookingRead(BaseModel):
 
     id: int
     user_id: int
-    provider_id: int
     start_date: date
     end_date: date
+
+    # Nested rather than a bare provider_id: a booking is only useful if you can
+    # see who it is with and how to reach them.
+    provider: ProviderRead

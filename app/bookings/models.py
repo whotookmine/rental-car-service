@@ -7,9 +7,10 @@ providers, not fleets, and reviews rate the provider. See `CONTEXT.md`.
 from datetime import date
 
 from sqlalchemy import Date, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
+from app.providers.models import Provider
 
 
 class Booking(Base):
@@ -33,6 +34,10 @@ class Booking(Base):
     # storing an instant would invite timezone conversion to shift the day.
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Joined eagerly: every route that returns a booking reports who it is with,
+    # so a lazy load would mean one extra query per booking in a list.
+    provider: Mapped[Provider] = relationship(lazy="joined")
 
     def __repr__(self) -> str:  # pragma: no cover
         return (
