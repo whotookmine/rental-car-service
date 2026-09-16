@@ -48,6 +48,13 @@ No rule may call `date.today()` directly.
   booking's owner. Admins have wider scope, not weaker rules, and share the same code
   path. The accepted cost is that an admin cannot extend an ended booking for a user who
   already holds 3 active ones, even to correct a genuine error.
+- The cap is re-checked on an edit **only when the new dates would leave the booking
+  active**, and the booking being edited is excluded from its own count. An owner at the
+  cap can therefore still re-date their bookings, and can still edit an ended booking that
+  stays ended, since it occupies no slot; what they cannot do is extend an ended booking
+  into the future to gain a fourth active one.
+- The refusal names whoever is actually at the limit: an owner is addressed directly, and
+  an admin editing someone else's booking is told about that booking's owner.
 - A booking that has a review cannot be edited such that its rental period would no
   longer be ended (409). This applies to owners and admins alike; it keeps every review
   in the table attached to a finished rental.
@@ -82,9 +89,28 @@ No rule may call `date.today()` directly.
 ### Authorization
 
 - Users and admins share the same routes. Scope widens by role: `GET /bookings` returns
-  your own bookings, or all of them for an admin.
+  your own bookings, or all of them for an admin. The same widening applies to a booking
+  addressed by identifier — fetching, re-dating and deleting all resolve through one
+  lookup, so a registered user reaches only their own and an admin reaches any.
 - Acting on a booking you do not own returns `404`, not `403`, so that booking ids
-  cannot be enumerated.
+  cannot be enumerated. The answer is identical whatever the verb and whatever else is
+  wrong with the request, so ordering cannot be used to probe either.
+- Admin-only provider routes answer `403` rather than `404`, whether or not the provider
+  exists: the role is resolved before the lookup, and provider existence is readable by
+  any authenticated user anyway.
+
+### Booking surface
+
+- Created under the provider (`POST /providers/{id}/bookings`), since a booking cannot
+  exist without one. Thereafter addressed directly: `GET /bookings`,
+  `GET /bookings/{id}`, `PUT /bookings/{id}`, `DELETE /bookings/{id}`.
+- Re-dating is a `PUT` carrying both dates rather than a `PATCH` of either. A rental
+  period is one value with two halves, so replacing it wholesale keeps the date rules on
+  the request schema, where they answer 422, instead of validating a merge of stored and
+  supplied values in the handler. Provider editing is a `PATCH` because its fields are
+  genuinely independent.
+- `DELETE /bookings/{id}` answers 204 with no body. Provider deletion answers 200 with the
+  record because it retires rather than removes; this one really deletes.
 
 ## Auth
 
@@ -126,6 +152,9 @@ the error shape.
 | Sending an unexpected field, such as `role`, on registration | 422 |
 | Acting on another user's booking | 404 |
 | An admin trying to create a booking of their own | 403 |
+| Deleting a booking | 204, no body |
+| Sending `provider_id` when re-dating a booking | 422 — refused, never silently ignored |
+| A registered user on an admin-only provider route | 403, whether or not the provider exists |
 | A path id larger than an integer primary key can hold | 422 |
 
 ## Seeding and testing

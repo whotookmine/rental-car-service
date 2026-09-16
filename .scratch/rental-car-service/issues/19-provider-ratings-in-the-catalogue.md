@@ -1,7 +1,7 @@
 # 19 — Provider ratings in the catalogue
 
 **What to build:** The provider list shows how each provider has been rated and how many
-people rated it, so a customer can tell a well-regarded provider from an untested one.
+people rated it, so a registered user can tell a well-regarded provider from an untested one.
 Figures are aggregated on read and never stored: stored counters would drift silently,
 because the booking-to-review cascade fires inside the database and would bypass any
 application-level counter update.

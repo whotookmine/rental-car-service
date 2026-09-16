@@ -38,6 +38,11 @@ slice that is demoable on its own. Every ticket file carries:
 6. **Tick the boxes and set `Status: done`** in the ticket file, in the same branch. Add a
    `## Notes` section for anything a reader would otherwise have to rediscover: judgement
    calls, deviations, things deliberately left out, things found while testing.
+   **In the same commit, update `docs/SPEC.md`** if the ticket added a route, changed a
+   status code, or made a rule behave differently from how the document describes it. This
+   has been the single most repeated failure on this project: the code was right, the
+   ticket Notes explained it, and the binding document was left saying something untrue.
+   Notes are not a substitute — `docs/SPEC.md` is what the next person reads.
 7. **Merge to `main` and push.** Tell your teammate when a ticket they are blocked on lands.
 
 ### Scope
