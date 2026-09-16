@@ -1,7 +1,7 @@
 # 15 — Review creation
 
 **What to build:** Once a rental is over, the person who rented rates the provider from 1
-to 5 and says what the experience was like, so the next customer chooses better than the
+to 5 and says what the experience was like, so the next renter chooses better than the
 last. Only the person who actually rented can review, only once the rental period has
 ended, and only once per booking.
 

@@ -1,7 +1,7 @@
 # 20 — Admin booking oversight
 
 **What to build:** An admin can see and act on every booking in the system, to support
-customers and correct mistakes. Scope widens by role on the same routes rather than
+registered users and correct mistakes. Scope widens by role on the same routes rather than
 through a separate admin namespace, so the ownership rule lives in one place and cannot
 drift between two copies. An admin has wider reach, not weaker rules: their edits are
 validated exactly as an owner's are.

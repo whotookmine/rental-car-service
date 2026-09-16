@@ -2,7 +2,7 @@
 
 **What to build:** An admin removes a review that should not stand, so abusive content
 does not stay visible against a provider. Removing bad content must not destroy the
-customer's rental record, and the customer should be able to write a proper review
+owner's rental record, and they should be able to write a proper review
 afterwards.
 
 **Blocked by:** 15

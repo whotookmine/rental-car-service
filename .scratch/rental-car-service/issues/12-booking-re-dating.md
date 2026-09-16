@@ -2,7 +2,7 @@
 
 **What to build:** A registered user adjusts their plans by changing a booking's dates,
 including extending one that is already underway. Which provider the booking is with can
-never change, so that every booking keeps reflecting the company actually reserved with —
+never change, so that every booking keeps reflecting the provider actually booked with —
 this is what keeps a review attached to the right provider.
 
 **Blocked by:** 09
