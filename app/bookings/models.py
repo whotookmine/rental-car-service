@@ -1,4 +1,4 @@
-"""The Booking model: a reservation of a rental period with one provider.
+"""The Booking model: one registered user's rental period with one provider.
 
 There is no Car. A booking reserves a period with a provider; the brief models
 providers, not fleets, and reviews rate the provider. See `CONTEXT.md`.
@@ -23,7 +23,7 @@ class Booking(Base):
     )
 
     # Fixed at creation. A booking can be re-dated but never re-pointed, which
-    # is what keeps a review attached to the company actually rented from.
+    # is what keeps a review attached to the provider actually rented from.
     # Providers are retired rather than deleted, so there is nothing to cascade.
     provider_id: Mapped[int] = mapped_column(
         ForeignKey("providers.id"), nullable=False, index=True

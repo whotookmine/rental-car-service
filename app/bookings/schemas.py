@@ -24,7 +24,7 @@ class BookingCreate(BaseModel):
     end_date: date
 
     @model_validator(mode="after")
-    def _rental_period_makes_sense(self) -> "BookingCreate":
+    def _validate_period_for_creation(self) -> "BookingCreate":
         if self.end_date < self.start_date:
             raise ValueError("end_date must not be before start_date")
 
