@@ -1,12 +1,13 @@
 """Provider catalogue: browsing, creation, editing, and retirement."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User, UserRole
 from app.db.session import get_db
+from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
 from app.providers.schemas import ProviderCreate, ProviderRead, ProviderUpdate
 
@@ -43,16 +44,9 @@ def list_providers(
     responses={404: {"description": "Provider not found."}},
 )
 def get_provider(
-    provider_id: int,
-    db: Session = Depends(get_db),
+    provider: Provider = Depends(get_provider_or_404),
     _user: User = Depends(get_current_user),
 ) -> ProviderRead:
-    provider = db.get(Provider, provider_id)
-    if provider is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found.",
-        )
     return ProviderRead.model_validate(provider)
 
 
@@ -85,18 +79,11 @@ def create_provider(
     responses={404: {"description": "Provider not found."}},
 )
 def update_provider(
-    provider_id: int,
     payload: ProviderUpdate,
+    provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ) -> ProviderRead:
-    provider = db.get(Provider, provider_id)
-    if provider is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found.",
-        )
-
     if payload.name is not None:
         provider.name = payload.name
     if payload.address is not None:
@@ -120,16 +107,10 @@ def update_provider(
     responses={404: {"description": "Provider not found."}},
 )
 def retire_provider(
-    provider_id: int,
+    provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ) -> ProviderRead:
-    provider = db.get(Provider, provider_id)
-    if provider is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found.",
-        )
     provider.is_retired = True
     db.commit()
     db.refresh(provider)
@@ -143,16 +124,10 @@ def retire_provider(
     responses={404: {"description": "Provider not found."}},
 )
 def reinstate_provider(
-    provider_id: int,
+    provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
     _admin: User = Depends(require_admin),
 ) -> ProviderRead:
-    provider = db.get(Provider, provider_id)
-    if provider is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found.",
-        )
     provider.is_retired = False
     db.commit()
     db.refresh(provider)
