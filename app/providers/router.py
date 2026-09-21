@@ -43,7 +43,7 @@ def _ratings_subquery():
     )
 
 
-def _build_read(provider: Provider, avg: Decimal | None, count: int) -> ProviderRead:
+def _build_read(provider: Provider, avg: Decimal | None, count: int | None) -> ProviderRead:
     return ProviderRead(
         id=provider.id,
         name=provider.name,

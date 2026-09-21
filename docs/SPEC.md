@@ -71,6 +71,8 @@ No rule may call `date.today()` directly.
 - Creatable only once the booking's rental period has ended, and only by the booking's
   owner.
 - Rating and comment are mutable by the owner; the booking it belongs to is not.
+- An admin may delete any review (to remove abusive content). The owner may also delete
+  their own. Edit remains owner-only.
 - Deleting a booking cascades to its review at the database level. Deleting a review
   leaves the booking intact and reviewable again.
 - A retired provider is still reviewable by users who booked it.
@@ -105,6 +107,10 @@ No rule may call `date.today()` directly.
 - Admin-only provider routes answer `403` rather than `404`, whether or not the provider
   exists: the role is resolved before the lookup, and provider existence is readable by
   any authenticated user anyway.
+- Review edit (`PUT`) is scoped to the owner only; another user (including an admin) is
+  refused with `404`. Review delete (`DELETE`) widens to admin: an admin may delete any
+  review, a regular user only their own. A regular user reaching another user's review
+  is still refused with `404`.
 
 ### Booking surface
 
@@ -126,8 +132,9 @@ No rule may call `date.today()` directly.
 - Only the booking's owner may create a review. An admin looking up another user's booking
   via the same route is refused with 404, not 403, consistent with the ownership-protection
   principle applied to bookings.
-- A booking whose `end_date` equals today counts as ended (the rental finished today).
-  A booking whose `end_date` is today or later is refused with 409.
+- A review may be created when `end_date < today()` (rental finished before today) or
+  `end_date == today()` (rental finished today). A booking whose `end_date` is in the
+  future is refused with 409. The check is `end_date >= today()` → conflict.
 - `PUT /reviews/{id}` replaces rating and comment. `booking_id` is absent from the schema
   and extra fields are forbidden, so a review can never be moved to a different booking.
 - `DELETE /reviews/{id}` removes the review; the booking is left intact and becomes
@@ -178,8 +185,11 @@ the error shape.
 | Acting on another user's booking | 404 |
 | An admin trying to create a booking of their own | 403 |
 | Deleting a booking | 204, no body |
+| Deleting a review | 204, no body |
 | Sending `provider_id` when re-dating a booking | 422 — refused, never silently ignored |
+| Sending `booking_id` when editing a review | 422 — refused, never silently ignored |
 | A registered user on an admin-only provider route | 403, whether or not the provider exists |
+| Editing or deleting another user's review (regular user) | 404 |
 | A path id larger than an integer primary key can hold | 422 |
 
 ## Seeding and testing
