@@ -1,15 +1,19 @@
 """Provider catalogue: browsing, creation, editing, and retirement."""
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
+from sqlalchemy import Numeric, func, select
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User, UserRole
+from app.bookings.models import Booking
 from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
 from app.providers.schemas import ProviderCreate, ProviderRead, ProviderUpdate
+from app.reviews.models import Review
 
 router = APIRouter(prefix="/providers", tags=["providers"])
 
@@ -20,14 +24,56 @@ router = APIRouter(prefix="/providers", tags=["providers"])
 # allowed to be asking at all.
 
 
+def _ratings_subquery():
+    """Subquery that aggregates review counts and averages per provider.
+
+    Joining through bookings is necessary because reviews are attached to
+    bookings, not directly to providers. LEFT JOIN so providers with no reviews
+    still appear.
+    """
+    return (
+        select(
+            Booking.provider_id.label("provider_id"),
+            func.round(func.avg(Review.rating).cast(Numeric), 1).label("average_rating"),
+            func.count(Review.id).label("review_count"),
+        )
+        .outerjoin(Review, Review.booking_id == Booking.id)
+        .group_by(Booking.provider_id)
+        .subquery()
+    )
+
+
+def _build_read(provider: Provider, avg: Decimal | None, count: int) -> ProviderRead:
+    return ProviderRead(
+        id=provider.id,
+        name=provider.name,
+        address=provider.address,
+        telephone=provider.telephone,
+        is_retired=provider.is_retired,
+        average_rating=float(avg) if avg is not None else None,
+        review_count=count or 0,
+    )
+
+
+def _fetch_one(provider_id: int, db: Session) -> ProviderRead:
+    ratings = _ratings_subquery()
+    row = db.execute(
+        select(Provider, ratings.c.average_rating, ratings.c.review_count)
+        .outerjoin(ratings, ratings.c.provider_id == Provider.id)
+        .where(Provider.id == provider_id)
+    ).one()
+    return _build_read(row[0], row[1], row[2])
+
+
 @router.get(
     "",
     response_model=list[ProviderRead],
     summary="List providers (authenticated)",
     description=(
-        "Returns active providers. Admins may pass `include_retired=true` to "
-        "include retired providers; registered users receive only active ones "
-        "regardless of that parameter."
+        "Returns active providers with their average rating and review count. "
+        "Admins may pass `include_retired=true` to include retired providers; "
+        "registered users receive only active ones regardless of that parameter. "
+        "Ordered by name, then by id for ties."
     ),
 )
 def list_providers(
@@ -35,25 +81,35 @@ def list_providers(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[ProviderRead]:
-    stmt = select(Provider)
+    ratings = _ratings_subquery()
+    stmt = (
+        select(Provider, ratings.c.average_rating, ratings.c.review_count)
+        .outerjoin(ratings, ratings.c.provider_id == Provider.id)
+        .order_by(Provider.name, Provider.id)
+    )
     if not include_retired or current_user.role != UserRole.admin:
         stmt = stmt.where(Provider.is_retired == False)  # noqa: E712
-    providers = db.scalars(stmt).all()
-    return [ProviderRead.model_validate(p) for p in providers]
+
+    rows = db.execute(stmt).all()
+    return [_build_read(row[0], row[1], row[2]) for row in rows]
 
 
 @router.get(
     "/{provider_id}",
     response_model=ProviderRead,
     summary="Fetch a single provider by id (authenticated)",
-    description="Returns the provider even if retired, so users can see who they booked with.",
+    description=(
+        "Returns the provider with its average rating and review count, "
+        "even if retired, so users can see who they booked with."
+    ),
     responses={404: {"description": "Provider not found."}},
 )
 def get_provider(
     provider: Provider = Depends(get_provider_or_404),
     _user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> ProviderRead:
-    return ProviderRead.model_validate(provider)
+    return _fetch_one(provider.id, db)
 
 
 @router.post(
@@ -75,7 +131,7 @@ def create_provider(
     db.add(provider)
     db.commit()
     db.refresh(provider)
-    return ProviderRead.model_validate(provider)
+    return _fetch_one(provider.id, db)
 
 
 @router.patch(
@@ -98,8 +154,7 @@ def update_provider(
         provider.telephone = payload.telephone
 
     db.commit()
-    db.refresh(provider)
-    return ProviderRead.model_validate(provider)
+    return _fetch_one(provider.id, db)
 
 
 @router.delete(
@@ -119,8 +174,7 @@ def retire_provider(
 ) -> ProviderRead:
     provider.is_retired = True
     db.commit()
-    db.refresh(provider)
-    return ProviderRead.model_validate(provider)
+    return _fetch_one(provider.id, db)
 
 
 @router.post(
@@ -136,5 +190,4 @@ def reinstate_provider(
 ) -> ProviderRead:
     provider.is_retired = False
     db.commit()
-    db.refresh(provider)
-    return ProviderRead.model_validate(provider)
+    return _fetch_one(provider.id, db)

@@ -9,12 +9,22 @@ afterwards.
 
 **Owner:** Garfield
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An admin deletes any review, not only their own
-- [ ] The booking the review belonged to survives intact
-- [ ] That booking becomes reviewable again, and its owner can write a new review
-- [ ] The provider's average rating and review count update to reflect only reviews that
+- [x] An admin deletes any review, not only their own
+- [x] The booking the review belonged to survives intact
+- [x] That booking becomes reviewable again, and its owner can write a new review
+- [x] The provider's average rating and review count update to reflect only reviews that
       still stand
-- [ ] A registered user attempting to delete someone else's review is still refused
-- [ ] Deleting a review never deletes a booking; the relationship runs one way only
+- [x] A registered user attempting to delete someone else's review is still refused
+- [x] Deleting a review never deletes a booking; the relationship runs one way only
+
+## Notes
+
+Added `get_deletable_review_or_404` to `app/reviews/dependencies.py`. Admins access any
+review; regular users are still scoped to their own (404 for another user's review).
+
+`DELETE /reviews/{id}` now uses `get_deletable_review_or_404`; `PUT /reviews/{id}` keeps
+`get_owned_review_or_404` (edit remains owner-only, per the SPEC).
+
+`docs/SPEC.md` updated to reflect the split: edit = owner only, delete = owner or admin.

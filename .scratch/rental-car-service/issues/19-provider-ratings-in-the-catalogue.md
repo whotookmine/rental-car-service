@@ -10,20 +10,36 @@ application-level counter update.
 
 **Owner:** Garfield
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every entry in the provider list carries an average rating and a review count
-- [ ] Fetching a single provider carries the same two figures
-- [ ] A provider with no reviews reports no rating rather than zero, so that an untested
+- [x] Every entry in the provider list carries an average rating and a review count
+- [x] Fetching a single provider carries the same two figures
+- [x] A provider with no reviews reports no rating rather than zero, so that an untested
       provider is not mistaken for a terrible one, and a review count of zero
-- [ ] Averages are rounded to one decimal place in responses and held at full precision in
+- [x] Averages are rounded to one decimal place in responses and held at full precision in
       storage
-- [ ] The figures are computed by aggregation at read time; no average or count is stored
+- [x] The figures are computed by aggregation at read time; no average or count is stored
       on the provider
-- [ ] Adding, editing, or deleting a review moves the figures
-- [ ] Deleting a booking that carried a review moves the figures
-- [ ] Retired providers keep their figures, visible when fetched by identifier
-- [ ] The list is served by a single query rather than one query per provider
+- [x] Adding, editing, or deleting a review moves the figures
+- [x] Deleting a booking that carried a review moves the figures
+- [x] Retired providers keep their figures, visible when fetched by identifier
+- [x] The list is served by a single query rather than one query per provider
+
+## Notes
+
+`ProviderRead` schema gains `average_rating: float | None` and `review_count: int`.
+All 6 provider routes now return these fields.
+
+The list uses a single LEFT JOIN subquery through bookings → reviews, GROUP BY provider.id.
+`_fetch_one()` reuses the same subquery pattern for single-provider routes.
+
+`ORDER BY name, id` added to list — fixes the flaky order noted in ticket 08 and required
+by ticket 22's Postman assertions.
+
+SQL ROUND applied to AVG cast to Numeric for correct decimal rounding in PostgreSQL.
+Python converts the Decimal result to float for the response.
+
+`docs/SPEC.md` updated to describe the aggregation approach and null semantics.
 
 ## Note from ticket 08
 

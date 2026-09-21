@@ -73,3 +73,8 @@ class ProviderRead(BaseModel):
     address: str
     telephone: str
     is_retired: bool
+
+    # Computed at read time by aggregation; never stored. None means no reviews yet,
+    # which is distinct from a zero average that would imply the provider is terrible.
+    average_rating: float | None = None
+    review_count: int = 0

@@ -80,14 +80,18 @@ No rule may call `date.today()` directly.
 - `GET /providers` excludes retired providers and carries `average_rating` and
   `review_count` for each. An admin may pass `include_retired=true` to see retired
   providers as well; the same parameter from a registered user is ignored, so retired
-  providers never reach them.
+  providers never reach them. Ordered by name, then id for ties.
 - `POST /providers/{id}/reinstate` returns a retired provider to the catalogue. Retirement
   is reversible, per ADR 0004.
-- `average_rating` is computed on read by aggregation, never stored. A provider with no
-  reviews returns `null`, not `0`. Rounded to one decimal place in responses, stored at
-  full precision.
+- `average_rating` is computed at read time by aggregating through bookings → reviews,
+  never stored. A provider with no reviews returns `null` for `average_rating` and `0`
+  for `review_count` — `null` rather than `0` so an untested provider is not mistaken for
+  a terrible one. Rounded to one decimal place in responses.
 - `GET /providers/{id}` returns retired providers too, so users can see who they booked.
+  Carries the same `average_rating` and `review_count` as the list.
 - `DELETE /providers/{id}` retires; it never removes the row.
+- The list is served by a single query (LEFT JOIN through bookings → reviews, GROUP BY
+  provider). No per-provider follow-up query is made.
 
 ### Authorization
 
@@ -114,6 +118,24 @@ No rule may call `date.today()` directly.
   genuinely independent.
 - `DELETE /bookings/{id}` answers 204 with no body. Provider deletion answers 200 with the
   record because it retires rather than removes; this one really deletes.
+
+### Review surface
+
+- Created under the booking (`POST /bookings/{id}/reviews`), since a review cannot exist
+  without one and the booking determines who may write it.
+- Only the booking's owner may create a review. An admin looking up another user's booking
+  via the same route is refused with 404, not 403, consistent with the ownership-protection
+  principle applied to bookings.
+- A booking whose `end_date` equals today counts as ended (the rental finished today).
+  A booking whose `end_date` is today or later is refused with 409.
+- `PUT /reviews/{id}` replaces rating and comment. `booking_id` is absent from the schema
+  and extra fields are forbidden, so a review can never be moved to a different booking.
+- `DELETE /reviews/{id}` removes the review; the booking is left intact and becomes
+  reviewable again.
+- Only the review's author may edit it; another user is refused with 404, not 403.
+- The review's author or an admin may delete it. A registered user reaching another
+  user's review via DELETE is still refused with 404.
+- `DELETE /reviews/{id}` answers 204 with no body.
 
 ## Auth
 
