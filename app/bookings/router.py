@@ -9,7 +9,7 @@ from app.auth.dependencies import get_current_user, require_registered_user
 from app.auth.models import User, UserRole
 from app.bookings.dependencies import get_visible_booking_or_404
 from app.bookings.models import Booking
-from app.bookings.rules import ensure_room_for_another_booking
+from app.bookings.rules import ensure_provider_is_active, ensure_room_for_another_booking
 from app.bookings.schemas import BookingCreate, BookingRead, BookingUpdate
 from app.core.clock import today
 from app.db.session import get_db
@@ -32,7 +32,12 @@ router = APIRouter(tags=["bookings"])
     responses={
         403: {"description": "Admins do not hold bookings."},
         404: {"description": "Provider not found."},
-        409: {"description": "The user already holds the maximum active bookings."},
+        409: {
+            "description": (
+                "The provider has retired and is no longer accepting bookings, "
+                "or the user already holds the maximum active bookings."
+            )
+        },
     },
 )
 def create_booking(
@@ -41,6 +46,7 @@ def create_booking(
     provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
 ) -> BookingRead:
+    ensure_provider_is_active(provider)
     ensure_room_for_another_booking(db, current_user.id)
 
     booking = Booking(

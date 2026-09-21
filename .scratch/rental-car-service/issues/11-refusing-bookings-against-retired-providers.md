@@ -8,12 +8,12 @@ ones are taken.
 
 **Owner:** Garfield
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Creating a booking against a retired provider is refused as a conflict
-- [ ] The refusal message names the reason, so the user is not left guessing
-- [ ] Bookings created before the provider was retired are unaffected and remain viewable
-- [ ] Reinstating a provider makes it bookable again
+- [x] Creating a booking against a retired provider is refused as a conflict
+- [x] The refusal message names the reason, so the user is not left guessing
+- [x] Bookings created before the provider was retired are unaffected and remain viewable
+- [x] Reinstating a provider makes it bookable again
 
 ## Heads-up from ticket 08 (Time → Garfield)
 
@@ -45,4 +45,23 @@ criterion of tickets 05, 06 and 07 still passes, including that a registered use
 **Unrelated, noticed while testing:** `GET /providers` has no `ORDER BY`, so the list comes
 back in whatever order PostgreSQL feels like — it visibly changed between runs. Not yours
 to fix here; flagged on ticket 19, which rebuilds that query anyway.
+
+## Notes
+
+Implementation is a single `ensure_provider_is_active(provider)` guard added to
+`app/bookings/rules.py`, called in `create_booking` before `ensure_room_for_another_booking`.
+The `Provider` object was already in hand via the existing `get_provider_or_404` dependency
+(as Time's heads-up described), so no new lookup was needed.
+
+The refusal message includes the provider name so the caller knows which provider is retired,
+and suggests reinstating it as the remedy.
+
+`docs/SPEC.md` already had the 409 status code row; added the matching rule to the Bookings
+section which previously omitted it.
+
+Verified manually against a running app and real database:
+- `POST /providers/4/bookings` against retired provider → 409 with named message
+- Existing booking (created before retirement) → 200, still viewable
+- `POST /providers/4/reinstate` then book again → 201
+- Migration round-trip (upgrade → downgrade base → upgrade) + `alembic check` → no drift
 

@@ -39,6 +39,9 @@ No rule may call `date.today()` directly.
   Deleting a booking frees a slot immediately. The check locks the owner's row before
   counting, so two simultaneous requests cannot both see a free slot and both take it —
   this is the transaction ADR 0001 cited when choosing PostgreSQL.
+- A booking cannot be created against a retired provider (409). Existing bookings made
+  before retirement are unaffected and remain viewable. Reinstating the provider makes it
+  bookable again.
 - Overlapping bookings by the same user are allowed. With no vehicle inventory they
   contradict nothing, and the active cap already bounds abuse.
 - Only the dates are mutable, for owner and admin alike. The provider is fixed at

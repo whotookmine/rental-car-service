@@ -1,12 +1,12 @@
 """Booking rules that need the database, and so cannot live in a schema.
 
 The date rules are shape rules and belong on the request schema, where they
-answer 422. The cap is different: it depends on what else is already stored, so
-the request is well formed and the *state* is wrong. That is a 409.
+answer 422. The cap and the retired-provider guard are different: the request is
+well formed and the *state* is wrong. That is a 409.
 
-This is the one home for the cap. It takes an owner rather than reading the
-caller, because an admin editing someone else's booking must be measured against
-that booking's owner, not against themselves.
+This is the one home for these rules. The cap takes an owner rather than reading
+the caller, because an admin editing someone else's booking must be measured
+against that booking's owner, not against themselves.
 """
 
 from fastapi import HTTPException, status
@@ -16,8 +16,21 @@ from sqlalchemy.orm import Session
 from app.auth.models import User
 from app.bookings.models import Booking
 from app.core.clock import today
+from app.providers.models import Provider
 
 MAX_ACTIVE_BOOKINGS = 3
+
+
+def ensure_provider_is_active(provider: Provider) -> None:
+    """Raise 409 if the provider has retired and is no longer accepting bookings."""
+    if provider.is_retired:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Provider '{provider.name}' has retired and is no longer "
+                "accepting bookings. Reinstate the provider before booking."
+            ),
+        )
 
 
 def count_active_bookings(
