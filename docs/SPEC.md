@@ -7,8 +7,9 @@ the rules, the surface, and the shape of the system as agreed.
 ## Stack
 
 Python, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic, PostgreSQL. Feature-first layout
-(`auth/`, `bookings/`, `providers/`, `reviews/`, `vehicle_classes/`), with a single
-`app/db/base.py` that imports every model so Alembic autogeneration sees all tables. JSON is snake_case, bare
+(`auth/`, `bookings/`, `providers/`, `reviews/`, `vehicle_classes/`, `vehicles/`), with a
+single `app/db/base.py` that imports every model so Alembic autogeneration sees all
+tables. JSON is snake_case, bare
 resources, FastAPI's default `{"detail": ...}` error shape with self-explaining messages.
 
 ## Entities
@@ -23,6 +24,7 @@ than a whole business. A booking still names only a provider until ticket 25.
 - **Provider** — name, address, telephone, `is_retired`.
 - **Vehicle Class** — provider, name, description. The kind of car, not an individual
   car. Belongs to exactly one provider for its whole life.
+- **Vehicle** — vehicle class, plate (unique system-wide). One individual car.
 - **Booking** — user, provider, `start_date`, `end_date` (both `DATE`).
 - **Review** — booking (unique), rating 1–5, comment.
 
@@ -114,10 +116,35 @@ No rule may call `date.today()` directly.
 - Removal is a real delete, not retirement — a class is catalogue housekeeping, not a
   party to a booking. But a class that anything else still points at is refused with 409
   rather than cascading, so history is never destroyed by tidying the catalogue. Every
-  table that comes to reference a vehicle class does so `ON DELETE RESTRICT`.
+  table that comes to reference a vehicle class does so `ON DELETE RESTRICT`; since
+  ticket 24 that includes vehicles, so removing a class that still has cars answers 409.
 - Classes under a retired provider remain listable and fetchable, matching how retired
   providers themselves behave. Adding a class to a retired provider is also allowed:
   retirement stops new bookings, and this is not one.
+
+### Vehicles
+
+- A vehicle sits in exactly one vehicle class. It may be reclassified within the same
+  provider's catalogue — a car really does move from Economy to Compact — but moving it
+  to another provider's class is refused with 409: that is a sale, not a
+  reclassification.
+- Plates are unique across the whole system, not per provider, and compared without
+  regard to case. A plate identifies a car on the road; the same one under two providers
+  would mean one of them is wrong. A duplicate is refused with 409, guaranteed by a
+  unique index on `lower(plate)`.
+- The fleet is admin-only to read. A plate is fleet administration and of no use to a
+  renter, who books a kind of car. What a renter needs is the count, reported as
+  `vehicle_count` on the vehicle class itself and readable by any authenticated user.
+- `vehicle_count` is computed on read by aggregation, never stored, for the same reason
+  a provider's `average_rating` is: a stored count drifts the moment a car is added or
+  removed outside the one code path that maintains it. It is the capacity that becomes
+  enforceable in ticket 26; nothing yet refuses a booking because of it.
+- Removing a vehicle is a real delete, but a car that anything else still points at — a
+  maintenance blackout window, once ticket 39 lands — is refused with 409 rather than
+  cascading. Every table that comes to reference a vehicle does so `ON DELETE RESTRICT`.
+- A vehicle's own foreign key to its class is `ON DELETE RESTRICT`, which is what makes
+  the vehicle class in-use refusal above real: removing a class that still has cars in it
+  answers 409.
 
 ### Authorization
 
@@ -144,6 +171,19 @@ No rule may call `date.today()` directly.
 - `DELETE /vehicle_classes/{id}` answers 204 with no body. It really removes the row.
 - Reads are open to any authenticated caller; create, edit and remove are admin-only and
   answer 403, consistent with the provider routes they mirror.
+
+### Vehicle surface
+
+- Created and listed under the class (`POST` / `GET /vehicle_classes/{id}/vehicles`,
+  ordered by plate then id), then addressed directly: `GET /vehicles/{id}`,
+  `PATCH /vehicles/{id}`, `DELETE /vehicles/{id}`.
+- Every one of those is admin-only and answers 403 to a registered user, reads included —
+  the only route in the service where a read is privileged, because the plate is the
+  privileged part.
+- `DELETE /vehicles/{id}` answers 204 with no body.
+- A `PATCH` naming a vehicle class that does not exist answers 422, not 404: the missing
+  thing is a value in the body, not the resource the path addresses, and the vehicle
+  itself was found.
 
 ### Booking surface
 
@@ -208,6 +248,12 @@ the error shape.
 | Sending `provider_id` when editing a vehicle class | 422 — refused, never silently ignored |
 | A registered user on an admin-only vehicle class route | 403, whether or not the class exists |
 | Removing a vehicle class | 204, no body |
+| A duplicate plate anywhere in the system, in any case | 409 |
+| Moving a vehicle to another provider's class | 409 |
+| Naming a non-existent vehicle class when editing a vehicle | 422 (a body value, not the path) |
+| Removing a vehicle that something still references | 409 |
+| A registered user on any vehicle route, read or write | 403 |
+| Removing a vehicle | 204, no body |
 
 ## Seeding and testing
 
