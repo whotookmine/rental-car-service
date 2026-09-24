@@ -21,8 +21,13 @@ _Avoid_: Open booking, current booking, pending booking
 
 **Provider**:
 A business that rents out cars, which bookings are made against and users rate. Identified by
-a name, address, and telephone number. Individual vehicles are not modelled.
+a name, address, and telephone number. Offers one or more vehicle classes.
 _Avoid_: Rental car provider, shop, vendor, company, hospital
+
+**Vehicle Class**:
+A kind of car a provider rents out, such as economy, SUV or van — not an individual
+car. Named and described, belonging to exactly one provider for its whole life.
+_Avoid_: Car type, category, model, vehicle group, tier
 
 **Review**:
 A rating from 1 to 5 with written comment that a registered user leaves against the

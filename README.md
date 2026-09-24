@@ -108,6 +108,7 @@ app/
   providers/     model, schemas, router and rules. Empty until their own tickets.
   bookings/
   reviews/
+  vehicle_classes/  the kinds of car each provider rents out
 alembic/       migration environment and versions
 ```
 
