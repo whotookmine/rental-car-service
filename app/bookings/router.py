@@ -10,6 +10,7 @@ from app.auth.models import User, UserRole
 from app.bookings.dependencies import get_visible_booking_or_404
 from app.bookings.models import Booking
 from app.bookings.rules import (
+    ensure_class_has_room,
     ensure_provider_is_active,
     ensure_reviewed_booking_stays_ended,
     ensure_room_for_another_booking,
@@ -41,8 +42,9 @@ router = APIRouter(tags=["bookings"])
         409: {
             "description": (
                 "The provider has retired and is no longer accepting bookings, "
-                "the user already holds the maximum active bookings, or the "
-                "vehicle class belongs to a different provider."
+                "the user already holds the maximum active bookings, the vehicle "
+                "class belongs to a different provider, or every vehicle in that "
+                "class is taken for part of the requested rental period."
             )
         },
         422: {"description": "The vehicle class does not exist."},
@@ -61,7 +63,16 @@ def create_booking(
     vehicle_class = resolve_vehicle_class_for_provider(
         db, provider, payload.vehicle_class_id
     )
+    # The caller's own limit first, then the world's. It is the one they control
+    # entirely -- they can free a slot by deleting a booking of their own -- and
+    # checking it first skips the per-day capacity query for a request that was
+    # going to fail regardless.
+    #
+    # The order is also the lock order: owner row, then vehicle class row. Every
+    # path that takes both takes them this way round; two routes taking them in
+    # opposite orders is how a deadlock is built.
     ensure_room_for_another_booking(db, current_user.id)
+    ensure_class_has_room(db, vehicle_class, payload.start_date, payload.end_date)
 
     booking = Booking(
         # From the token. A caller cannot book on someone else's behalf by
@@ -138,8 +149,9 @@ def get_booking(
         409: {
             "description": (
                 "The booking has been reviewed and the new dates would leave it "
-                "not yet ended, or the owner already holds the maximum active "
-                "bookings."
+                "not yet ended, the owner already holds the maximum active "
+                "bookings, or the vehicle class is fully booked for the new "
+                "rental period."
             )
         },
     },
@@ -169,6 +181,22 @@ def update_booking(
             # say whose limit was reached rather than address them as the owner.
             owner_is_caller=booking.user_id == current_user.id,
         )
+
+    # Capacity for the new dates, measured against the booking's own class and
+    # excluding the booking itself -- it is moving, not being added. Taken after
+    # the owner cap so that the lock order matches creation's.
+    #
+    # Unlike the owner cap this is checked whatever the new dates are, including
+    # ones wholly in the past: a past-dated booking still occupied a car on those
+    # days, and an admin correcting history must not be able to record four
+    # rentals of a class that only ever had three cars.
+    ensure_class_has_room(
+        db,
+        booking.vehicle_class,
+        payload.start_date,
+        payload.end_date,
+        excluding_booking_id=booking.id,
+    )
 
     booking.start_date = payload.start_date
     booking.end_date = payload.end_date
