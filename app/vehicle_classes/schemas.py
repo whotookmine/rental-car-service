@@ -50,3 +50,9 @@ class VehicleClassRead(BaseModel):
     provider_id: int
     name: str
     description: str
+
+    # How many cars sit in this class. Counted on read, never stored, for the
+    # same reason a provider's average rating is: a stored count drifts the
+    # moment a car is added or removed outside the one code path that maintains
+    # it. This is the capacity ticket 26 enforces.
+    vehicle_count: int = 0

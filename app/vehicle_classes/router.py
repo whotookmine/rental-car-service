@@ -17,6 +17,7 @@ from app.vehicle_classes.schemas import (
     VehicleClassRead,
     VehicleClassUpdate,
 )
+from app.vehicles.models import Vehicle
 
 router = APIRouter(tags=["vehicle classes"])
 
@@ -26,6 +27,42 @@ router = APIRouter(tags=["vehicle classes"])
 # not exist before checking whether the caller is allowed to ask at all.
 
 _DUPLICATE_NAME = "This provider already has a vehicle class with that name."
+
+
+def _counts_subquery():
+    """Subquery counting the cars in each vehicle class.
+
+    Read-time aggregation rather than a stored column, matching how a provider's
+    average rating is handled: nothing can drift out of step with the fleet.
+    """
+    return (
+        select(
+            Vehicle.vehicle_class_id.label("vehicle_class_id"),
+            func.count(Vehicle.id).label("vehicle_count"),
+        )
+        .group_by(Vehicle.vehicle_class_id)
+        .subquery()
+    )
+
+
+def _build_read(vehicle_class: VehicleClass, count: int | None) -> VehicleClassRead:
+    return VehicleClassRead(
+        id=vehicle_class.id,
+        provider_id=vehicle_class.provider_id,
+        name=vehicle_class.name,
+        description=vehicle_class.description,
+        vehicle_count=count or 0,
+    )
+
+
+def _fetch_one(vehicle_class_id: int, db: Session) -> VehicleClassRead:
+    counts = _counts_subquery()
+    row = db.execute(
+        select(VehicleClass, counts.c.vehicle_count)
+        .outerjoin(counts, counts.c.vehicle_class_id == VehicleClass.id)
+        .where(VehicleClass.id == vehicle_class_id)
+    ).one()
+    return _build_read(row[0], row[1])
 
 
 def _duplicate_name() -> HTTPException:
@@ -65,16 +102,15 @@ def list_vehicle_classes(
     provider: Provider = Depends(get_provider_or_404),
     _user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[VehicleClass]:
-    return list(
-        db.execute(
-            select(VehicleClass)
-            .where(VehicleClass.provider_id == provider.id)
-            .order_by(VehicleClass.name, VehicleClass.id)
-        )
-        .scalars()
-        .all()
-    )
+) -> list[VehicleClassRead]:
+    counts = _counts_subquery()
+    rows = db.execute(
+        select(VehicleClass, counts.c.vehicle_count)
+        .outerjoin(counts, counts.c.vehicle_class_id == VehicleClass.id)
+        .where(VehicleClass.provider_id == provider.id)
+        .order_by(VehicleClass.name, VehicleClass.id)
+    ).all()
+    return [_build_read(row[0], row[1]) for row in rows]
 
 
 @router.get(
@@ -86,8 +122,9 @@ def list_vehicle_classes(
 def get_vehicle_class(
     vehicle_class: VehicleClass = Depends(get_vehicle_class_or_404),
     _user: User = Depends(get_current_user),
-) -> VehicleClass:
-    return vehicle_class
+    db: Session = Depends(get_db),
+) -> VehicleClassRead:
+    return _fetch_one(vehicle_class.id, db)
 
 
 @router.post(
@@ -109,7 +146,7 @@ def create_vehicle_class(
     _admin: User = Depends(require_admin),
     provider: Provider = Depends(get_provider_or_404),
     db: Session = Depends(get_db),
-) -> VehicleClass:
+) -> VehicleClassRead:
     _refuse_duplicate_name(db, provider_id=provider.id, name=payload.name)
 
     vehicle_class = VehicleClass(
@@ -126,7 +163,7 @@ def create_vehicle_class(
         db.rollback()
         raise _duplicate_name() from None
     db.refresh(vehicle_class)
-    return vehicle_class
+    return _fetch_one(vehicle_class.id, db)
 
 
 @router.patch(
@@ -147,7 +184,7 @@ def update_vehicle_class(
     _admin: User = Depends(require_admin),
     vehicle_class: VehicleClass = Depends(get_vehicle_class_or_404),
     db: Session = Depends(get_db),
-) -> VehicleClass:
+) -> VehicleClassRead:
     if payload.name is not None:
         _refuse_duplicate_name(
             db,
@@ -165,7 +202,7 @@ def update_vehicle_class(
         db.rollback()
         raise _duplicate_name() from None
     db.refresh(vehicle_class)
-    return vehicle_class
+    return _fetch_one(vehicle_class.id, db)
 
 
 @router.delete(

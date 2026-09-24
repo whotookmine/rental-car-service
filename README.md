@@ -109,6 +109,7 @@ app/
   bookings/
   reviews/
   vehicle_classes/  the kinds of car each provider rents out
+  vehicles/      the individual cars in each class
 alembic/       migration environment and versions
 ```
 

@@ -29,6 +29,12 @@ A kind of car a provider rents out, such as economy, SUV or van — not an indiv
 car. Named and described, belonging to exactly one provider for its whole life.
 _Avoid_: Car type, category, model, vehicle group, tier
 
+**Vehicle**:
+One individual car in a provider's fleet, identified by its plate and sitting in exactly
+one of that provider's vehicle classes. A car may be reclassified within its provider's
+catalogue but never passes to another provider.
+_Avoid_: Unit, car, asset, fleet item, inventory item
+
 **Review**:
 A rating from 1 to 5 with written comment that a registered user leaves against the
 provider of one of their own bookings, once that booking's rental period has ended.

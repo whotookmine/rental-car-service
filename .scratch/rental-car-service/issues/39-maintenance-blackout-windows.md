@@ -21,3 +21,5 @@ rather than only classes.
       schedule
 - [ ] A registered user is refused 403 on every write
 - [ ] All date comparisons go through the business-timezone helper
+- [ ] The window's foreign key to its vehicle is `ON DELETE RESTRICT`, matching tickets 23
+      and 24: removing a vehicle that has a blackout window must answer 409, never cascade
