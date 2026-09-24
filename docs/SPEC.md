@@ -61,7 +61,13 @@ No rule may call `date.today()` directly.
   an admin editing someone else's booking is told about that booking's owner.
 - A booking that has a review cannot be edited such that its rental period would no
   longer be ended (409). This applies to owners and admins alike; it keeps every review
-  in the table attached to a finished rental.
+  in the table attached to a finished rental. "No longer ended" uses the same boundary as
+  the active-booking cap, so moving a reviewed booking to end **today** is refused just as
+  moving it into the future is.
+- When an edit breaks both this rule and the cap, the review refusal is the one reported.
+  It is absolute — no amount of freeing slots makes a reviewed booking movable into the
+  future — whereas the cap clears on its own as rental periods end. Malformed dates still
+  answer 422 ahead of either, since validation runs before the handler.
 - Admins do not hold bookings. `POST /providers/{id}/bookings` refuses an admin caller
   with 403. The cap is a rule about a renter's behaviour and admin oversight is defined as
   acting on other people's bookings; an admin holding their own would make both ambiguous.
@@ -159,6 +165,7 @@ the error shape.
 | Deleting a booking | 204, no body |
 | Sending `provider_id` when re-dating a booking | 422 — refused, never silently ignored |
 | A registered user on an admin-only provider route | 403, whether or not the provider exists |
+| Re-dating a reviewed booking so it would not yet have ended | 409, reported ahead of the cap |
 | A path id larger than an integer primary key can hold | 422 |
 
 ## Seeding and testing

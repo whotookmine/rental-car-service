@@ -9,7 +9,11 @@ from app.auth.dependencies import get_current_user, require_registered_user
 from app.auth.models import User, UserRole
 from app.bookings.dependencies import get_visible_booking_or_404
 from app.bookings.models import Booking
-from app.bookings.rules import ensure_provider_is_active, ensure_room_for_another_booking
+from app.bookings.rules import (
+    ensure_provider_is_active,
+    ensure_reviewed_booking_stays_ended,
+    ensure_room_for_another_booking,
+)
 from app.bookings.schemas import BookingCreate, BookingRead, BookingUpdate
 from app.core.clock import today
 from app.db.session import get_db
@@ -119,7 +123,13 @@ def get_booking(
     ),
     responses={
         404: {"description": "Booking not found."},
-        409: {"description": "The owner already holds the maximum active bookings."},
+        409: {
+            "description": (
+                "The booking has been reviewed and the new dates would leave it "
+                "not yet ended, or the owner already holds the maximum active "
+                "bookings."
+            )
+        },
     },
 )
 def update_booking(
@@ -128,6 +138,12 @@ def update_booking(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> BookingRead:
+    # Checked before the cap because this refusal is absolute: no amount of
+    # freeing slots will make a reviewed booking movable into the future, whereas
+    # the cap clears on its own as rental periods end. Telling the caller the
+    # permanent blocker first is more use than telling them the transient one.
+    ensure_reviewed_booking_stays_ended(db, booking.id, payload.end_date)
+
     # Only re-check the cap when the edit would leave the booking active. A
     # booking that has ended and stays ended occupies no slot, so an owner at the
     # limit must still be able to correct its dates. The booking is excluded from
