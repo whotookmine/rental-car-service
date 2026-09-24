@@ -23,3 +23,9 @@ window is scheduled after the booking was made.
       Whichever is chosen, an existing booking must not silently vanish
 - [ ] The check runs under the same lock as the capacity count, so a blackout and a booking
       cannot race
+
+## Hand-off note
+
+With ticket 46, this is the second and last thing Garfield waits on. His ticket 47 (seed
+data) needs blackout enforcement and the waitlist both finished, because the seed has to
+produce a blacked-out vehicle and a populated queue. Tell him when both are in.

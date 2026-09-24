@@ -26,3 +26,10 @@ demonstrated from an empty database.
       run when the environment is production
 - [ ] Every demo credential and every seeded identifier a demo needs is printed or
       documented
+
+## Coordination note
+
+Blocked on Time's 41 and 46 as well as your own 38. This is the integration point where
+both halves of the round meet for the first time, so expect to find disagreements between
+them here rather than earlier. Tickets 48 and 49 follow it and are also yours, so the whole
+tail is one person's — nothing bounces back.

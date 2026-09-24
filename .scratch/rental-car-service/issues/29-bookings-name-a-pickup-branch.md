@@ -18,3 +18,12 @@ one-way rentals.
 - [ ] Every existing booking rule still holds, including capacity from ticket 26
 - [ ] Existing bookings are migrated to their provider's first branch, and the migration
       says so
+
+## Coordination note
+
+Blocked on Time's ticket 25, which adds the vehicle class to a booking. You can do 28, 30,
+31 and 36 first without waiting.
+
+This is also where you start editing `app/bookings/`, which Time is editing in 25, 26 and
+41. Pull before you start and land your booking-touching tickets (29, 32, 37) one at a
+time.

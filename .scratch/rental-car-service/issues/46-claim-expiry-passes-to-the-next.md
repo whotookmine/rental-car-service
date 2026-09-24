@@ -22,3 +22,8 @@ closes the loop that makes a waitlist a queue rather than a lottery.
 - [ ] Time is judged in the business timezone, like every other rule
 - [ ] The whole pass-on happens under the same lock, so a claim cannot expire into two
       people's hands at once
+
+## Hand-off note
+
+With ticket 41, this is the second and last thing Garfield waits on, for the same reason:
+ticket 47 seeds a waiting queue, which cannot exist until the queue behaves correctly.

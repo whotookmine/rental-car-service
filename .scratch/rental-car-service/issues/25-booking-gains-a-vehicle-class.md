@@ -23,3 +23,15 @@ waitlist expressible at all.
       oversight, and the reviewed-booking rule
 - [ ] Existing bookings are migrated rather than destroyed; the migration states what
       class historical rows are given and why
+
+## Hand-off note
+
+**This ticket is the only thing Garfield waits on until integration.** His tickets 29
+(pickup branch on a booking) and 33 (money) both need a booking that names a vehicle class.
+He can do 28, 30, 31 and 36 without it, so there is roughly four tickets of slack — but
+tell him the moment this merges rather than at the end of the phase.
+
+It also opens the shared file. From here, `app/bookings/` is edited by both of us: Time in
+25, 26 and 41, Garfield in 29, 32 and 37. Each of those adds a column and a rule to the
+same model and router. Land them one at a time and pull before starting, or the merges get
+ugly.
