@@ -17,7 +17,7 @@ resources, FastAPI's default `{"detail": ...}` error shape with self-explaining 
 There was no Car entity in the first round of work: a booking reserved a period with a
 provider and nothing else. The second round introduces the **vehicle class** — the kind
 of car a provider rents — because a waitlist has to queue for something more specific
-than a whole business. A booking still names only a provider until ticket 25.
+than a whole business. Since ticket 25 a booking names one.
 
 - **User** — name, telephone, email (unique, lowercased), password hash, role
   (`user` | `admin`, defaults to `user`, never settable through the API).
@@ -25,7 +25,7 @@ than a whole business. A booking still names only a provider until ticket 25.
 - **Vehicle Class** — provider, name, description. The kind of car, not an individual
   car. Belongs to exactly one provider for its whole life.
 - **Vehicle** — vehicle class, plate (unique system-wide). One individual car.
-- **Booking** — user, provider, `start_date`, `end_date` (both `DATE`).
+- **Booking** — user, provider, vehicle class, `start_date`, `end_date` (both `DATE`).
 - **Review** — booking (unique), rating 1–5, comment.
 
 ## Dates
@@ -47,11 +47,20 @@ No rule may call `date.today()` directly.
   Deleting a booking frees a slot immediately. The check locks the owner's row before
   counting, so two simultaneous requests cannot both see a free slot and both take it —
   this is the transaction ADR 0001 cited when choosing PostgreSQL.
+- A booking names one of that provider's vehicle classes, required at creation. A class
+  that does not exist answers 422 — it is a bad value in the body, not a missing resource
+  at the path — and a class belonging to a different provider answers 409, naming both so
+  the caller knows which half of the request to change. The class is resolved before the
+  active-booking cap is taken, so a request with the wrong class is told what is actually
+  wrong with it.
+- The vehicle class is fixed at creation, exactly as the provider is, and for the same
+  reason: a review must keep describing what was actually rented. Sending either when
+  re-dating is refused with 422, never ignored.
 - A booking cannot be created against a retired provider (409). Existing bookings made
   before retirement are unaffected and remain viewable. Reinstating the provider makes it
   bookable again.
-- Overlapping bookings by the same user are allowed. With no vehicle inventory they
-  contradict nothing, and the active cap already bounds abuse.
+- Overlapping bookings by the same user are allowed. The active cap bounds abuse, and
+  until ticket 26 nothing counts a class's capacity, so they contradict nothing.
 - Only the dates are mutable, for owner and admin alike. The provider is fixed at
   creation.
 - Every edit is validated identically whether the owner or an admin makes it: date
@@ -197,6 +206,12 @@ No rule may call `date.today()` directly.
   genuinely independent.
 - `DELETE /bookings/{id}` answers 204 with no body. Provider deletion answers 200 with the
   record because it retires rather than removes; this one really deletes.
+- A booking response nests the provider and the vehicle class. The class is nested as a
+  **summary** — id, provider, name, description — and deliberately without
+  `vehicle_count`, because that number comes from an aggregate query rather than from the
+  model and would otherwise be reported as a confident zero. The nested provider does not
+  yet observe the same discipline: `average_rating` and `review_count` inside a booking
+  are always `null` and `0`. That is a known defect, recorded as ticket 50.
 
 ## Auth
 
@@ -243,6 +258,10 @@ the error shape.
 | A registered user on an admin-only provider route | 403, whether or not the provider exists |
 | Re-dating a reviewed booking so it would not yet have ended | 409, reported ahead of the cap |
 | A path id larger than an integer primary key can hold | 422 |
+| Booking with no vehicle class, or one outside integer range | 422 |
+| Booking a vehicle class that does not exist | 422 (a body value, not the path) |
+| Booking a vehicle class belonging to a different provider | 409 |
+| Sending `vehicle_class_id` when re-dating a booking | 422 — refused, never silently ignored |
 | A duplicate vehicle class name under one provider, in any case | 409 |
 | Removing a vehicle class that something still references | 409 |
 | Sending `provider_id` when editing a vehicle class | 422 — refused, never silently ignored |
@@ -260,7 +279,10 @@ the error shape.
 `python -m app.seed` wipes and recreates demo data, and refuses to run when
 `ENV=production`. It creates 3–4 providers including one retired, one admin, two users,
 and for the demo user one ended booking (inserted through the ORM, bypassing the
-no-past-dates rule) plus one upcoming booking. It creates no reviews, so the demo
+no-past-dates rule) plus one upcoming booking. Since ticket 25 it also creates one vehicle
+class per provider, and two for the first, because a booking cannot exist without one. It
+creates no vehicles: capacity is not enforced until ticket 26, and ticket 47 rebuilds the
+fixture. It creates no reviews, so the demo
 performs the first one.
 
 Testing is a committed Postman collection only; there is no automated suite. Dates in

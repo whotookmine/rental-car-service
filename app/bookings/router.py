@@ -13,6 +13,7 @@ from app.bookings.rules import (
     ensure_provider_is_active,
     ensure_reviewed_booking_stays_ended,
     ensure_room_for_another_booking,
+    resolve_vehicle_class_for_provider,
 )
 from app.bookings.schemas import BookingCreate, BookingRead, BookingUpdate
 from app.core.clock import today
@@ -31,7 +32,8 @@ router = APIRouter(tags=["bookings"])
     description=(
         "Creates a booking for the calling registered user. The provider is part "
         "of the path because a booking cannot exist without one, and it is fixed "
-        "for the life of the booking."
+        "for the life of the booking. The body names which of that provider's "
+        "vehicle classes is being rented, which is fixed for the same reason."
     ),
     responses={
         403: {"description": "Admins do not hold bookings."},
@@ -39,9 +41,11 @@ router = APIRouter(tags=["bookings"])
         409: {
             "description": (
                 "The provider has retired and is no longer accepting bookings, "
-                "or the user already holds the maximum active bookings."
+                "the user already holds the maximum active bookings, or the "
+                "vehicle class belongs to a different provider."
             )
         },
+        422: {"description": "The vehicle class does not exist."},
     },
 )
 def create_booking(
@@ -51,6 +55,12 @@ def create_booking(
     db: Session = Depends(get_db),
 ) -> BookingRead:
     ensure_provider_is_active(provider)
+    # Resolved before the cap is taken, so that a request naming the wrong class
+    # is told what is actually wrong with it rather than being turned away for a
+    # limit it would still hit after fixing the class.
+    vehicle_class = resolve_vehicle_class_for_provider(
+        db, provider, payload.vehicle_class_id
+    )
     ensure_room_for_another_booking(db, current_user.id)
 
     booking = Booking(
@@ -58,6 +68,7 @@ def create_booking(
         # naming them, because the request has no say in who owns this.
         user_id=current_user.id,
         provider_id=provider.id,
+        vehicle_class_id=vehicle_class.id,
         start_date=payload.start_date,
         end_date=payload.end_date,
     )
@@ -118,8 +129,9 @@ def get_booking(
     description=(
         "Replaces the rental period. The same shape rules as creation apply — end "
         "on or after start, at most thirty days — but a start date in the past is "
-        "allowed here, so a rental already underway can be extended. The provider "
-        "cannot be changed: sending one is refused, not ignored."
+        "allowed here, so a rental already underway can be extended. Neither the "
+        "provider nor the vehicle class can be changed: sending either is "
+        "refused, not ignored."
     ),
     responses={
         404: {"description": "Booking not found."},

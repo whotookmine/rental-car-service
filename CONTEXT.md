@@ -6,7 +6,7 @@ period of time, and afterwards rate the provider they rented from.
 ## Language
 
 **Booking**:
-A registered user's claim on one provider for a rental period.
+A registered user's claim on one provider, for one vehicle class, for a rental period.
 _Avoid_: Reservation, appointment, order, rental
 
 **Rental Period**:
