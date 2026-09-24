@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.auth.models import User
 from app.bookings.models import Booking
 from app.core.clock import today
+from app.reviews.models import Review
 from app.providers.models import Provider
 
 MAX_ACTIVE_BOOKINGS = 3
@@ -109,3 +110,33 @@ def ensure_room_for_another_booking(
         >= MAX_ACTIVE_BOOKINGS
     ):
         raise too_many_active_bookings(owner_is_caller=owner_is_caller)
+
+
+def ensure_reviewed_booking_stays_ended(db: Session, booking_id: int, new_end_date) -> None:
+    """Refuse an edit that would leave a reviewed booking not yet ended.
+
+    A review describes a finished rental. If a booking that already carries one
+    could be re-dated into the future, the table would hold a review of a rental
+    still in progress, contradicting the premise reviews are written on.
+
+    The rule belongs to the booking rather than to either role: an owner and an
+    admin reach it through the same edit, and it applies to both identically.
+
+    A rental period ending today has not ended — that is the same boundary the
+    active-booking cap uses — so moving a reviewed booking to end today is
+    refused just as moving it into the future is.
+    """
+    if new_end_date < today():
+        return  # Still ended after the edit; nothing to protect.
+
+    has_review = db.scalar(
+        select(func.count()).select_from(Review).where(Review.booking_id == booking_id)
+    )
+    if has_review:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This booking has been reviewed, so its rental period cannot be "
+                "moved to a date that has not passed. Delete the review first."
+            ),
+        )
