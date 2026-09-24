@@ -59,8 +59,36 @@ No rule may call `date.today()` directly.
 - A booking cannot be created against a retired provider (409). Existing bookings made
   before retirement are unaffected and remain viewable. Reinstating the provider makes it
   bookable again.
-- Overlapping bookings by the same user are allowed. The active cap bounds abuse, and
-  until ticket 26 nothing counts a class's capacity, so they contradict nothing.
+- Overlapping bookings by the same user are allowed. The active cap bounds abuse, and a
+  class's capacity bounds the rest: a user may hold two bookings at once so long as the
+  class has room for both.
+- **A vehicle class is booked at most as many times on any one day as it has vehicles.**
+  The check is per day, not per booking: two bookings sharing even one day both consume a
+  car that day, so a whole-period comparison would let a class be over-booked by bookings
+  that merely fail to nest. The busiest day in the requested period is compared against
+  the count of cars in the class, and a peak at or above capacity is refused with 409
+  naming the class and the dates. Adjacent periods do not conflict — a booking ending on
+  the 10th and one starting on the 11th share no day.
+- A class with no vehicles refuses every booking, and says so rather than reporting a
+  generic conflict.
+- The capacity check applies to re-dating as well as creation, for owners and admins
+  alike, measured against the booking's own class and excluding the booking itself, which
+  is moving rather than being added. Unlike the active-booking cap it is checked whatever
+  the new dates are, including ones wholly in the past: a past-dated booking still
+  occupied a car on those days, and an admin correcting history must not be able to record
+  four rentals of a class that only ever had three cars.
+- Capacity frees the moment a booking is deleted, exactly as a user's own slot does.
+- Selling cars can leave a class holding more bookings than it has capacity for. Those
+  bookings stand — history is never destroyed to satisfy a later rule — and only new ones
+  are refused.
+- The count is taken under a row lock on the vehicle class, for the reason the active cap
+  locks the owner: counting and then inserting is a race, and two requests could otherwise
+  both see the last car free and both take it. **Every path that takes both locks takes
+  the owner first and the class second.** Two routes taking them in opposite orders is how
+  a deadlock is built.
+- The caller's own cap is checked before the class's capacity. It is the limit they
+  control entirely, and checking it first skips the per-day query for a request that would
+  fail regardless.
 - Only the dates are mutable, for owner and admin alike. The provider is fixed at
   creation.
 - Every edit is validated identically whether the owner or an admin makes it: date
@@ -261,6 +289,9 @@ the error shape.
 | Booking with no vehicle class, or one outside integer range | 422 |
 | Booking a vehicle class that does not exist | 422 (a body value, not the path) |
 | Booking a vehicle class belonging to a different provider | 409 |
+| Booking a class whose vehicles are all taken on any day of the period | 409 |
+| Booking a class that has no vehicles at all | 409 |
+| Re-dating a booking into a period where its class is full | 409 |
 | Sending `vehicle_class_id` when re-dating a booking | 422 — refused, never silently ignored |
 | A duplicate vehicle class name under one provider, in any case | 409 |
 | Removing a vehicle class that something still references | 409 |
@@ -281,8 +312,10 @@ the error shape.
 and for the demo user one ended booking (inserted through the ORM, bypassing the
 no-past-dates rule) plus one upcoming booking. Since ticket 25 it also creates one vehicle
 class per provider, and two for the first, because a booking cannot exist without one. It
-creates no vehicles: capacity is not enforced until ticket 26, and ticket 47 rebuilds the
-fixture. It creates no reviews, so the demo
+creates vehicles for each of those classes — three, one, two and one — since ticket 26
+made capacity real and a class with no cars refuses every booking. The counts differ on
+purpose, so a demo can fill the one-car class and see the refusal without making three
+bookings first. Ticket 47 rebuilds the fixture. It creates no reviews, so the demo
 performs the first one.
 
 Testing is a committed Postman collection only; there is no automated suite. Dates in

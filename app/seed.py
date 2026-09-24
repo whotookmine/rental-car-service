@@ -31,6 +31,7 @@ from app.core.config import get_settings
 from app.db.session import engine
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
+from app.vehicles.models import Vehicle
 
 
 def _wipe(db: Session) -> None:
@@ -123,6 +124,32 @@ def _vehicle_classes(db: Session, providers: list[Provider]) -> list[VehicleClas
     return classes
 
 
+def _vehicles(db: Session, classes: list[VehicleClass]) -> None:
+    """Cars for each class, because capacity is now enforced.
+
+    Without these every seeded class would have capacity zero and refuse every
+    booking, including the fixture's own. Counts differ on purpose: the demo
+    should be able to fill a small class and see the refusal without creating
+    three bookings first, while a larger one stays bookable.
+    """
+    counts = {
+        "Economy": 3,
+        "SUV": 1,
+        "Van": 2,
+        "Classic": 1,
+    }
+    vehicles = []
+    plate_number = 1000
+    for vehicle_class in classes:
+        for _ in range(counts[vehicle_class.name]):
+            plate_number += 1
+            vehicles.append(
+                Vehicle(vehicle_class_id=vehicle_class.id, plate=f"1กข{plate_number}")
+            )
+    db.add_all(vehicles)
+    db.flush()
+
+
 def _bookings(
     db: Session,
     demo_user: User,
@@ -164,6 +191,7 @@ def seed() -> None:
         _, demo, _ = _users(db)
         providers = _providers(db)
         classes = _vehicle_classes(db, providers)
+        _vehicles(db, classes)
         _bookings(db, demo, providers, classes)
         db.commit()
 

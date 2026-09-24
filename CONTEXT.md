@@ -26,8 +26,15 @@ _Avoid_: Rental car provider, shop, vendor, company, hospital
 
 **Vehicle Class**:
 A kind of car a provider rents out, such as economy, SUV or van — not an individual
-car. Named and described, belonging to exactly one provider for its whole life.
+car. Named and described, belonging to exactly one provider for its whole life. Its
+capacity is the number of vehicles in it.
 _Avoid_: Car type, category, model, vehicle group, tier
+
+**Fully Booked**:
+The state of a vehicle class on a given day when every one of its vehicles is held by a
+booking covering that day. A class is fully booked for a rental period if it is fully
+booked on any single day of it.
+_Avoid_: Sold out, unavailable, no vacancies, booked out, occupied
 
 **Vehicle**:
 One individual car in a provider's fleet, identified by its plate and sitting in exactly

@@ -9,8 +9,10 @@ the caller, because an admin editing someone else's booking must be measured
 against that booking's owner, not against themselves.
 """
 
+from datetime import date
+
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
@@ -19,8 +21,112 @@ from app.core.clock import today
 from app.reviews.models import Review
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
+from app.vehicles.models import Vehicle
 
 MAX_ACTIVE_BOOKINGS = 3
+
+# The busiest single day in a requested rental period, measured per day rather
+# than per booking. Two bookings that share one day both consume a car that day,
+# even if they differ on every other day, so a whole-period count would let a
+# class be over-booked by bookings that merely fail to nest.
+#
+# `generate_series` walks the requested days one at a time. That is the simplest
+# thing that is obviously correct, and the series is bounded: a rental period is
+# at most thirty days by the schema rule, so this is at most thirty rows.
+_PEAK_BOOKINGS_ON_ANY_DAY = text(
+    """
+    SELECT COALESCE(MAX(taken), 0) FROM (
+        SELECT COUNT(b.id) AS taken
+        FROM generate_series(
+                 CAST(:start_date AS date),
+                 CAST(:end_date AS date),
+                 CAST('1 day' AS interval)
+             ) AS d(day)
+        LEFT JOIN bookings b
+               ON b.vehicle_class_id = :vehicle_class_id
+              AND b.start_date <= d.day
+              AND b.end_date >= d.day
+              AND (CAST(:excluding_booking_id AS integer) IS NULL
+                   OR b.id <> CAST(:excluding_booking_id AS integer))
+        GROUP BY d.day
+    ) per_day
+    """
+)
+
+
+def count_vehicles_in_class(db: Session, vehicle_class_id: int) -> int:
+    """How many cars sit in a class. This is its capacity."""
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(Vehicle)
+            .where(Vehicle.vehicle_class_id == vehicle_class_id)
+        )
+        or 0
+    )
+
+
+def ensure_class_has_room(
+    db: Session,
+    vehicle_class: VehicleClass,
+    start_date: date,
+    end_date: date,
+    *,
+    excluding_booking_id: int | None = None,
+) -> None:
+    """Raise 409 if every car in the class is taken on any day of the period.
+
+    The lock comes first, on the vehicle class row, for exactly the reason the
+    active-booking cap locks the owner: counting and then inserting is a race,
+    and two requests can otherwise both see the last car free and both take it.
+    Locking the class serialises every booking that changes that class's
+    occupancy.
+
+    **Lock order matters.** Every path that takes both locks takes the owner
+    first and the class second. Taking them in opposite orders in two different
+    routes is how a deadlock is built, and PostgreSQL would resolve it by
+    killing one caller's transaction at random.
+
+    A class whose cars have since been sold can hold more bookings than it has
+    capacity for. Those bookings stand -- history is never destroyed to satisfy
+    a later rule -- and only new ones are refused.
+    """
+    db.execute(
+        select(VehicleClass.id)
+        .where(VehicleClass.id == vehicle_class.id)
+        .with_for_update()
+    )
+
+    capacity = count_vehicles_in_class(db, vehicle_class.id)
+    peak = (
+        db.scalar(
+            _PEAK_BOOKINGS_ON_ANY_DAY,
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "vehicle_class_id": vehicle_class.id,
+                "excluding_booking_id": excluding_booking_id,
+            },
+        )
+        or 0
+    )
+
+    if peak >= capacity:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Vehicle class '{vehicle_class.name}' is fully booked between "
+                f"{start_date} and {end_date}. "
+                + (
+                    "This class has no vehicles."
+                    if capacity == 0
+                    else "Its only vehicle is taken on at least one of those days."
+                    if capacity == 1
+                    else f"All {capacity} of its vehicles are taken on at least "
+                    "one of those days."
+                )
+            ),
+        )
 
 
 def ensure_provider_is_active(provider: Provider) -> None:
