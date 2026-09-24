@@ -20,3 +20,6 @@ scheduled against one of them, so both later features need units rather than jus
 - [ ] Removing a vehicle that has a blackout window or is otherwise referenced is refused
       rather than cascading
 - [ ] Adding vehicles raises that class's capacity, which ticket 26 then enforces
+- [ ] The vehicle's foreign key to its class is `ON DELETE RESTRICT`, so ticket 23's
+      "vehicle class is in use" refusal becomes real rather than theoretical; verify that
+      removing a class that has vehicles answers 409

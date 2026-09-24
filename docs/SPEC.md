@@ -7,17 +7,22 @@ the rules, the surface, and the shape of the system as agreed.
 ## Stack
 
 Python, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic, PostgreSQL. Feature-first layout
-(`auth/`, `bookings/`, `providers/`, `reviews/`), with a single `app/db/base.py` that
-imports every model so Alembic autogeneration sees all tables. JSON is snake_case, bare
+(`auth/`, `bookings/`, `providers/`, `reviews/`, `vehicle_classes/`), with a single
+`app/db/base.py` that imports every model so Alembic autogeneration sees all tables. JSON is snake_case, bare
 resources, FastAPI's default `{"detail": ...}` error shape with self-explaining messages.
 
 ## Entities
 
-There is no Car entity. A booking reserves a period with a provider.
+There was no Car entity in the first round of work: a booking reserved a period with a
+provider and nothing else. The second round introduces the **vehicle class** — the kind
+of car a provider rents — because a waitlist has to queue for something more specific
+than a whole business. A booking still names only a provider until ticket 25.
 
 - **User** — name, telephone, email (unique, lowercased), password hash, role
   (`user` | `admin`, defaults to `user`, never settable through the API).
 - **Provider** — name, address, telephone, `is_retired`.
+- **Vehicle Class** — provider, name, description. The kind of car, not an individual
+  car. Belongs to exactly one provider for its whole life.
 - **Booking** — user, provider, `start_date`, `end_date` (both `DATE`).
 - **Review** — booking (unique), rating 1–5, comment.
 
@@ -96,6 +101,24 @@ No rule may call `date.today()` directly.
 - `GET /providers/{id}` returns retired providers too, so users can see who they booked.
 - `DELETE /providers/{id}` retires; it never removes the row.
 
+### Vehicle classes
+
+- A class belongs to exactly one provider and never moves. The provider is set at
+  creation from the path, and the update shape carries no field for it, so there is no
+  request that could express a move.
+- Names are unique within a provider and compared without regard to case: "SUV" and
+  "suv" are the same kind of car to a reader. Two different providers may each offer an
+  "SUV". A duplicate is refused with 409. A unique index on `(provider_id, lower(name))`
+  is what guarantees it; the handler's own lookup exists only to produce a readable
+  message in the ordinary case.
+- Removal is a real delete, not retirement — a class is catalogue housekeeping, not a
+  party to a booking. But a class that anything else still points at is refused with 409
+  rather than cascading, so history is never destroyed by tidying the catalogue. Every
+  table that comes to reference a vehicle class does so `ON DELETE RESTRICT`.
+- Classes under a retired provider remain listable and fetchable, matching how retired
+  providers themselves behave. Adding a class to a retired provider is also allowed:
+  retirement stops new bookings, and this is not one.
+
 ### Authorization
 
 - Users and admins share the same routes. Scope widens by role: `GET /bookings` returns
@@ -108,6 +131,19 @@ No rule may call `date.today()` directly.
 - Admin-only provider routes answer `403` rather than `404`, whether or not the provider
   exists: the role is resolved before the lookup, and provider existence is readable by
   any authenticated user anyway.
+
+### Vehicle class surface
+
+- Created under the provider (`POST /providers/{id}/vehicle_classes`), since a class
+  cannot exist without one, and listed there (`GET /providers/{id}/vehicle_classes`,
+  ordered by name then id). Thereafter addressed directly:
+  `GET /vehicle_classes/{id}`, `PATCH /vehicle_classes/{id}`,
+  `DELETE /vehicle_classes/{id}`.
+- Editing is a `PATCH` because name and description are genuinely independent, as with
+  providers.
+- `DELETE /vehicle_classes/{id}` answers 204 with no body. It really removes the row.
+- Reads are open to any authenticated caller; create, edit and remove are admin-only and
+  answer 403, consistent with the provider routes they mirror.
 
 ### Booking surface
 
@@ -167,6 +203,11 @@ the error shape.
 | A registered user on an admin-only provider route | 403, whether or not the provider exists |
 | Re-dating a reviewed booking so it would not yet have ended | 409, reported ahead of the cap |
 | A path id larger than an integer primary key can hold | 422 |
+| A duplicate vehicle class name under one provider, in any case | 409 |
+| Removing a vehicle class that something still references | 409 |
+| Sending `provider_id` when editing a vehicle class | 422 — refused, never silently ignored |
+| A registered user on an admin-only vehicle class route | 403, whether or not the class exists |
+| Removing a vehicle class | 204, no body |
 
 ## Seeding and testing
 

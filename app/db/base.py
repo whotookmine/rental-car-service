@@ -13,3 +13,4 @@ from app.providers.models import Provider as Provider  # noqa: F401
 from app.bookings.models import Booking as Booking  # noqa: F401
 
 from app.reviews.models import Review as Review  # noqa: F401
+from app.vehicle_classes.models import VehicleClass as VehicleClass  # noqa: F401

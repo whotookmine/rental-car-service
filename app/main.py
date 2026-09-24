@@ -10,6 +10,7 @@ from app.core.errors import validation_exception_handler
 from app.health.router import router as health_router
 from app.providers.router import router as providers_router
 from app.reviews.router import router as reviews_router
+from app.vehicle_classes.router import router as vehicle_classes_router
 
 # Read and validate configuration before the app object exists, so a missing or
 # malformed environment variable stops startup loudly instead of surfacing as a
@@ -35,3 +36,4 @@ app.include_router(auth_router)
 app.include_router(providers_router)
 app.include_router(bookings_router)
 app.include_router(reviews_router)
+app.include_router(vehicle_classes_router)

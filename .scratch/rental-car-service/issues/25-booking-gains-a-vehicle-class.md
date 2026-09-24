@@ -23,6 +23,8 @@ waitlist expressible at all.
       oversight, and the reviewed-booking rule
 - [ ] Existing bookings are migrated rather than destroyed; the migration states what
       class historical rows are given and why
+- [ ] The booking's foreign key to the vehicle class is `ON DELETE RESTRICT`, matching
+      ticket 23: removing a class that bookings point at must answer 409, never cascade
 
 ## Hand-off note
 
