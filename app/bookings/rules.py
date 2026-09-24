@@ -18,6 +18,7 @@ from app.bookings.models import Booking
 from app.core.clock import today
 from app.reviews.models import Review
 from app.providers.models import Provider
+from app.vehicle_classes.models import VehicleClass
 
 MAX_ACTIVE_BOOKINGS = 3
 
@@ -32,6 +33,38 @@ def ensure_provider_is_active(provider: Provider) -> None:
                 "accepting bookings. Reinstate the provider before booking."
             ),
         )
+
+
+def resolve_vehicle_class_for_provider(
+    db: Session, provider: Provider, vehicle_class_id: int
+) -> VehicleClass:
+    """Find the class being booked, and refuse it if it is not this provider's.
+
+    Two different refusals, because they are two different mistakes:
+
+    - A class that does not exist is a bad value in the request body, not a
+      missing resource at the path being addressed. That is a 422, matching how
+      a vehicle's own edit answers when it names a class that is not there.
+    - A class that exists but belongs to someone else is a well-formed request
+      against the wrong state. That is a 409, and the message says so plainly,
+      because the caller can see both catalogues and needs to know which half of
+      the request to change.
+    """
+    vehicle_class = db.get(VehicleClass, vehicle_class_id)
+    if vehicle_class is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Vehicle class not found.",
+        )
+    if vehicle_class.provider_id != provider.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Vehicle class '{vehicle_class.name}' does not belong to "
+                f"provider '{provider.name}'."
+            ),
+        )
+    return vehicle_class
 
 
 def count_active_bookings(

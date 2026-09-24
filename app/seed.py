@@ -30,12 +30,16 @@ from app.core.clock import today
 from app.core.config import get_settings
 from app.db.session import engine
 from app.providers.models import Provider
+from app.vehicle_classes.models import VehicleClass
 
 
 def _wipe(db: Session) -> None:
-    # Delete in FK-safe order: bookings first (reviews will cascade once that
-    # table exists), then providers and users.
+    # Delete in FK-safe order: bookings first (reviews cascade with them), then
+    # vehicles and vehicle classes, which bookings and vehicles both point at
+    # with ON DELETE RESTRICT, and only then providers and users.
     db.execute(text("DELETE FROM bookings"))
+    db.execute(text("DELETE FROM vehicles"))
+    db.execute(text("DELETE FROM vehicle_classes"))
     db.execute(text("DELETE FROM providers"))
     db.execute(text("DELETE FROM users"))
 
@@ -79,7 +83,52 @@ def _providers(db: Session) -> list[Provider]:
     return providers
 
 
-def _bookings(db: Session, demo_user: User, providers: list[Provider]) -> None:
+def _vehicle_classes(db: Session, providers: list[Provider]) -> list[VehicleClass]:
+    """One kind of car per provider, plus a second for the first.
+
+    A booking now has to name a class, so the fixture needs somewhere for its
+    bookings to point. Two under the first provider so that a demo has something
+    to choose between. No vehicles are created: capacity is not enforced until
+    ticket 26, and ticket 47 rebuilds this fixture properly.
+    """
+    classes = [
+        VehicleClass(
+            provider_id=providers[0].id,
+            name="Economy",
+            description="Small, cheap, four seats.",
+        ),
+        VehicleClass(
+            provider_id=providers[0].id,
+            name="SUV",
+            description="Seven seats and room for luggage.",
+        ),
+        VehicleClass(
+            provider_id=providers[1].id,
+            name="Economy",
+            description="Small, cheap, four seats.",
+        ),
+        VehicleClass(
+            provider_id=providers[2].id,
+            name="Van",
+            description="Twelve seats for a group.",
+        ),
+        VehicleClass(
+            provider_id=providers[3].id,
+            name="Classic",
+            description="Older cars, kept on the books after retirement.",
+        ),
+    ]
+    db.add_all(classes)
+    db.flush()
+    return classes
+
+
+def _bookings(
+    db: Session,
+    demo_user: User,
+    providers: list[Provider],
+    classes: list[VehicleClass],
+) -> None:
     t = today()
     active_provider = providers[0]
 
@@ -88,6 +137,7 @@ def _bookings(db: Session, demo_user: User, providers: list[Provider]) -> None:
     ended = Booking(
         user_id=demo_user.id,
         provider_id=active_provider.id,
+        vehicle_class_id=classes[0].id,
         start_date=t - timedelta(days=20),
         end_date=t - timedelta(days=5),
     )
@@ -96,6 +146,7 @@ def _bookings(db: Session, demo_user: User, providers: list[Provider]) -> None:
     upcoming = Booking(
         user_id=demo_user.id,
         provider_id=providers[1].id,
+        vehicle_class_id=classes[2].id,
         start_date=t + timedelta(days=5),
         end_date=t + timedelta(days=15),
     )
@@ -112,7 +163,8 @@ def seed() -> None:
         _wipe(db)
         _, demo, _ = _users(db)
         providers = _providers(db)
-        _bookings(db, demo, providers)
+        classes = _vehicle_classes(db, providers)
+        _bookings(db, demo, providers, classes)
         db.commit()
 
     print("Seed complete.")

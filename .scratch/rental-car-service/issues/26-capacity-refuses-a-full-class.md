@@ -23,3 +23,6 @@ something, and it is the precondition for the waitlist in ticket 43.
       reason ADR 0001 chose PostgreSQL
 - [ ] "Today" and all date comparisons go through the business-timezone helper
 - [ ] The rule applies to admin edits as well as owner ones, measured against the class
+- [ ] `app/seed.py` gives its vehicle classes cars. Ticket 25 added classes to the seed
+      but no vehicles, so the moment this rule lands every seeded class has capacity zero
+      and refuses every booking — including the fixture's own

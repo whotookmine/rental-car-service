@@ -2,10 +2,11 @@
 
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.clock import today
 from app.providers.schemas import ProviderRead
+from app.vehicle_classes.schemas import VehicleClassSummary
 
 # A rental period is counted inclusively: a booking from the 1st to the 30th is
 # thirty days, not twenty-nine. The cap exists so that one booking cannot occupy
@@ -39,6 +40,11 @@ def validate_rental_period(start: date, end: date) -> None:
 class BookingCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    # Required, with no default. A booking without a kind of car cannot be
+    # matched against capacity or queued on a waitlist, so there is no sensible
+    # thing to fall back to; omitting it is a 422.
+    vehicle_class_id: int = Field(ge=1, le=2147483647)
+
     start_date: date
     end_date: date
 
@@ -60,9 +66,11 @@ class BookingUpdate(BaseModel):
 
     Both dates are required: a rental period is one value with two halves, and
     replacing it wholesale keeps the rules on the schema, where they answer 422,
-    rather than in the handler. The provider is absent on purpose and `extra`
-    is forbidden, so an attempt to move a booking to a different provider is
-    refused loudly instead of being silently ignored.
+    rather than in the handler. The provider and the vehicle class are absent on
+    purpose and `extra` is forbidden, so an attempt to move a booking to another
+    provider, or to change what kind of car it is for, is refused loudly instead
+    of being silently ignored. Both are fixed at creation for the same reason: a
+    review must keep describing what was actually rented.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -87,3 +95,8 @@ class BookingRead(BaseModel):
     # Nested rather than a bare provider_id: a booking is only useful if you can
     # see who it is with and how to reach them.
     provider: ProviderRead
+
+    # The summary, not the full read shape: `vehicle_count` comes from an
+    # aggregate query rather than from the model, so nesting the full shape here
+    # would report a confident zero for every booking.
+    vehicle_class: VehicleClassSummary

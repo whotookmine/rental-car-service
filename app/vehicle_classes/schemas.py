@@ -43,13 +43,25 @@ class VehicleClassUpdate(BaseModel):
         return _require_content(value)
 
 
-class VehicleClassRead(BaseModel):
+class VehicleClassSummary(BaseModel):
+    """A vehicle class as it appears *inside* another resource, such as a booking.
+
+    Deliberately carries no `vehicle_count`. That number is produced by an
+    aggregate query, not by reading the model, so a schema validated straight
+    from a `VehicleClass` object would fall back to the default and report a
+    confident zero. A field that is sometimes a lie is worse than an absent one.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     provider_id: int
     name: str
     description: str
+
+
+class VehicleClassRead(VehicleClassSummary):
+    """A vehicle class as its own resource, where the count is computed."""
 
     # How many cars sit in this class. Counted on read, never stored, for the
     # same reason a provider's average rating is: a stored count drifts the
