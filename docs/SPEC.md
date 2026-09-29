@@ -53,6 +53,11 @@ No rule may call `date.today()` directly.
   the caller knows which half of the request to change. The class is resolved before the
   active-booking cap is taken, so a request with the wrong class is told what is actually
   wrong with it.
+- A booking names a pickup branch, required at creation. The same two-refusal logic
+  applies: a branch that does not exist answers 422; one that belongs to a different
+  provider answers 409. The branch is fixed at creation for the same reason as the vehicle
+  class — it records where the car was collected — and sending `pickup_branch_id` when
+  re-dating is refused with 422. The pickup branch is nested in every booking response.
 - The vehicle class is fixed at creation, exactly as the provider is, and for the same
   reason: a review must keep describing what was actually rented. Sending either when
   re-dating is refused with 422, never ignored.
@@ -314,6 +319,9 @@ the error shape.
 | Booking with no vehicle class, or one outside integer range | 422 |
 | Booking a vehicle class that does not exist | 422 (a body value, not the path) |
 | Booking a vehicle class belonging to a different provider | 409 |
+| Booking with a pickup branch that does not exist | 422 (a body value, not the path) |
+| Booking with a pickup branch belonging to a different provider | 409 |
+| Sending `pickup_branch_id` when re-dating a booking | 422 — refused, never silently ignored |
 | Removing the last branch under a provider | 409 |
 | Removing a branch named by a booking | 409 |
 | A registered user on any branch write route | 403 |

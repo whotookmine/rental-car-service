@@ -8,16 +8,32 @@ one-way rentals.
 
 **Owner:** Garfield
 
-**Status:** ready-for-agent
+**Status:** done — verified against a running app and a real database
 
-- [ ] Creating a booking requires a pickup branch, and it must belong to the provider in
+- [x] Creating a booking requires a pickup branch, and it must belong to the provider in
       the path
-- [ ] A branch belonging to a different provider is refused
-- [ ] The pickup branch appears on every booking response
-- [ ] The pickup branch is fixed at creation, like the provider and the vehicle class
-- [ ] Every existing booking rule still holds, including capacity from ticket 26
-- [ ] Existing bookings are migrated to their provider's first branch, and the migration
+- [x] A branch belonging to a different provider is refused
+- [x] The pickup branch appears on every booking response
+- [x] The pickup branch is fixed at creation, like the provider and the vehicle class
+- [x] Every existing booking rule still holds, including capacity from ticket 26
+- [x] Existing bookings are migrated to their provider's first branch, and the migration
       says so
+
+## Notes
+
+Added `pickup_branch_id` (FK to `branches`, ON DELETE RESTRICT) to `Booking` model and
+`BookingCreate` schema. `BookingRead` nests `pickup_branch` as a `BranchRead`.
+
+`BookingUpdate` has no `pickup_branch_id` and `extra="forbid"`, so sending it on re-date
+answers 422 — same protection as `vehicle_class_id`.
+
+New rule `resolve_branch_for_provider` in `app/bookings/rules.py` mirrors
+`resolve_vehicle_class_for_provider`: nonexistent branch → 422, wrong provider → 409.
+
+Migration `c5f625e54f25`: adds column nullable, backfills each existing booking to its
+provider's lowest-id branch (the "Main Branch" seeded by cb0b6c819227), then sets NOT
+NULL. The ON DELETE RESTRICT FK makes the branch-in-use guard in ticket 28's delete
+handler real.
 
 ## Coordination note
 

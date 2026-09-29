@@ -11,6 +11,7 @@ from datetime import date
 from sqlalchemy import Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.branches.models import Branch
 from app.db.base_class import Base
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
@@ -42,6 +43,15 @@ class Booking(Base):
         index=True,
     )
 
+    # Fixed at creation like the provider and vehicle class. A booking records
+    # where the car was collected; that fact does not change when the dates do.
+    # RESTRICT: removing a branch that bookings name must be refused, not cascade.
+    pickup_branch_id: Mapped[int] = mapped_column(
+        ForeignKey("branches.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
     # Plain dates. A rental has no pickup or return time in this domain, and
     # storing an instant would invite timezone conversion to shift the day.
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -54,6 +64,9 @@ class Booking(Base):
     # Joined for the same reason as the provider: every booking response names
     # the kind of car, so a lazy load would mean an extra query per booking.
     vehicle_class: Mapped[VehicleClass] = relationship(lazy="joined")
+
+    # Joined for the same reason: every booking response names where to collect.
+    pickup_branch: Mapped[Branch] = relationship(lazy="joined")
 
     def __repr__(self) -> str:  # pragma: no cover
         return (

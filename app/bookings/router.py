@@ -14,6 +14,7 @@ from app.bookings.rules import (
     ensure_provider_is_active,
     ensure_reviewed_booking_stays_ended,
     ensure_room_for_another_booking,
+    resolve_branch_for_provider,
     resolve_vehicle_class_for_provider,
 )
 from app.bookings.schemas import BookingCreate, BookingRead, BookingUpdate
@@ -43,11 +44,12 @@ router = APIRouter(tags=["bookings"])
             "description": (
                 "The provider has retired and is no longer accepting bookings, "
                 "the user already holds the maximum active bookings, the vehicle "
-                "class belongs to a different provider, or every vehicle in that "
-                "class is taken for part of the requested rental period."
+                "class or pickup branch belongs to a different provider, or every "
+                "vehicle in that class is taken for part of the requested rental "
+                "period."
             )
         },
-        422: {"description": "The vehicle class does not exist."},
+        422: {"description": "The vehicle class or pickup branch does not exist."},
     },
 )
 def create_booking(
@@ -57,12 +59,13 @@ def create_booking(
     db: Session = Depends(get_db),
 ) -> BookingRead:
     ensure_provider_is_active(provider)
-    # Resolved before the cap is taken, so that a request naming the wrong class
-    # is told what is actually wrong with it rather than being turned away for a
-    # limit it would still hit after fixing the class.
+    # Both resolved before the cap is taken, so that a request naming the wrong
+    # class or branch is told what is actually wrong rather than being turned away
+    # for a limit it would still hit after fixing the bad value.
     vehicle_class = resolve_vehicle_class_for_provider(
         db, provider, payload.vehicle_class_id
     )
+    branch = resolve_branch_for_provider(db, provider, payload.pickup_branch_id)
     # The caller's own limit first, then the world's. It is the one they control
     # entirely -- they can free a slot by deleting a booking of their own -- and
     # checking it first skips the per-day capacity query for a request that was
@@ -80,6 +83,7 @@ def create_booking(
         user_id=current_user.id,
         provider_id=provider.id,
         vehicle_class_id=vehicle_class.id,
+        pickup_branch_id=branch.id,
         start_date=payload.start_date,
         end_date=payload.end_date,
     )

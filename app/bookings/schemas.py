@@ -4,6 +4,7 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.branches.schemas import BranchRead
 from app.core.clock import today
 from app.providers.schemas import ProviderRead
 from app.vehicle_classes.schemas import VehicleClassSummary
@@ -44,6 +45,10 @@ class BookingCreate(BaseModel):
     # matched against capacity or queued on a waitlist, so there is no sensible
     # thing to fall back to; omitting it is a 422.
     vehicle_class_id: int = Field(ge=1, le=2147483647)
+
+    # Required. Records where the car is collected; fixed at creation like the
+    # provider and vehicle class. Must belong to the same provider as the path.
+    pickup_branch_id: int = Field(ge=1, le=2147483647)
 
     start_date: date
     end_date: date
@@ -100,3 +105,7 @@ class BookingRead(BaseModel):
     # aggregate query rather than from the model, so nesting the full shape here
     # would report a confident zero for every booking.
     vehicle_class: VehicleClassSummary
+
+    # Nested: tells the renter where to go. Fixed at creation; re-dating carries
+    # no branch field and `extra="forbid"` on BookingUpdate refuses it.
+    pickup_branch: BranchRead

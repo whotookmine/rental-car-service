@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.models import User
 from app.bookings.models import Booking
+from app.branches.models import Branch
 from app.core.clock import today
 from app.reviews.models import Review
 from app.providers.models import Provider
@@ -171,6 +172,35 @@ def resolve_vehicle_class_for_provider(
             ),
         )
     return vehicle_class
+
+
+def resolve_branch_for_provider(
+    db: Session, provider: Provider, branch_id: int
+) -> Branch:
+    """Find the pickup branch, and refuse it if it is not this provider's.
+
+    Same two-refusal logic as `resolve_vehicle_class_for_provider`:
+
+    - A branch that does not exist is a bad body value, not a missing path
+      resource. That is a 422.
+    - A branch that exists but belongs to a different provider is a well-formed
+      request against the wrong state. That is a 409.
+    """
+    branch = db.get(Branch, branch_id)
+    if branch is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Branch not found.",
+        )
+    if branch.provider_id != provider.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Branch '{branch.name}' does not belong to "
+                f"provider '{provider.name}'."
+            ),
+        )
+    return branch
 
 
 def count_active_bookings(
