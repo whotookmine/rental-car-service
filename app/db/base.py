@@ -11,6 +11,7 @@ from app.db.base_class import Base as Base  # noqa: F401
 from app.auth.models import User as User  # noqa: F401
 from app.providers.models import Provider as Provider  # noqa: F401
 from app.branches.models import Branch as Branch  # noqa: F401
+from app.branch_distances.models import BranchDistance as BranchDistance  # noqa: F401
 from app.bookings.models import Booking as Booking  # noqa: F401
 
 from app.reviews.models import Review as Review  # noqa: F401

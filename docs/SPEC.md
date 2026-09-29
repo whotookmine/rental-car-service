@@ -225,6 +225,24 @@ No rule may call `date.today()` directly.
 - `DELETE /branches/{id}` answers 204 with no body.
 - Migration `cb0b6c819227` created the table and seeded one "Main Branch" per existing
   provider using the provider's address and telephone, so no provider was left without one.
+- Removing a branch cascades to its distances (ON DELETE CASCADE on `branch_distances`).
+
+### Branch distances
+
+- An admin records the distance in kilometres between two of the same provider's branches.
+  Distance is symmetric: one row covers both directions. Application code stores the pair
+  in canonical form (smaller id first) and normalises every read and write the same way.
+- Recorded with `PUT /providers/{id}/branch_distances` (body: `from_branch_id`,
+  `to_branch_id`, `distance_km`). Submitting the same pair again updates rather than
+  duplicating. Read with `GET /providers/{id}/branch_distances/{a}/{b}`; removed with
+  `DELETE /providers/{id}/branch_distances/{a}/{b}`.
+- Reads are open to any authenticated caller; create, edit and remove are admin-only (403).
+- A branch that does not exist answers 422; one that belongs to a different provider
+  answers 409. A branch paired with itself is refused with 422. A negative or zero distance
+  is refused with 422.
+- A missing distance answers 404 — it is never assumed to be zero, since a zero relocation
+  fee and an unknown one are different things.
+- `DELETE /providers/{id}/branch_distances/{a}/{b}` answers 204 with no body.
 
 ### Vehicle class surface
 
@@ -322,6 +340,13 @@ the error shape.
 | Booking with a pickup branch that does not exist | 422 (a body value, not the path) |
 | Booking with a pickup branch belonging to a different provider | 409 |
 | Sending `pickup_branch_id` when re-dating a booking | 422 — refused, never silently ignored |
+| Recording a distance between branches of different providers | 409 |
+| Recording a distance from a branch to itself | 422 |
+| Recording a negative or zero distance | 422 |
+| A branch in a distance request that does not exist | 422 (body value) |
+| Fetching a distance that has not been recorded | 404 |
+| A registered user on a branch distance write route | 403 |
+| Removing a branch distance | 204, no body |
 | Removing the last branch under a provider | 409 |
 | Removing a branch named by a booking | 409 |
 | A registered user on any branch write route | 403 |

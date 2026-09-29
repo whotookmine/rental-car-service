@@ -11,15 +11,28 @@ and cost, for a number an admin can type once. See the ADR in ticket 48.
 
 **Owner:** Garfield
 
-**Status:** ready-for-agent
+**Status:** done — verified against a running app and a real database
 
-- [ ] An admin records the distance in kilometres between two branches of the same provider
-- [ ] An admin edits and removes a distance
-- [ ] Distance is symmetric: recording A to B also answers B to A, without a second row
-- [ ] A distance between branches of different providers is refused
-- [ ] A distance from a branch to itself is refused, or is always zero and not stored
-- [ ] Negative or non-numeric distances are refused as unprocessable
-- [ ] Recording the same pair twice updates rather than duplicating
-- [ ] Any authenticated user can read a distance; only an admin can write one
-- [ ] A missing distance is reported as absent rather than assumed to be zero, since a
+- [x] An admin records the distance in kilometres between two branches of the same provider
+- [x] An admin edits and removes a distance
+- [x] Distance is symmetric: recording A to B also answers B to A, without a second row
+- [x] A distance between branches of different providers is refused
+- [x] A distance from a branch to itself is refused, or is always zero and not stored
+- [x] Negative or non-numeric distances are refused as unprocessable
+- [x] Recording the same pair twice updates rather than duplicating
+- [x] Any authenticated user can read a distance; only an admin can write one
+- [x] A missing distance is reported as absent rather than assumed to be zero, since a
       zero relocation fee and an unknown one are different things
+
+## Notes
+
+New package `app/branch_distances/`. Model uses composite PK `(from_branch_id, to_branch_id)` with both FKs `ON DELETE CASCADE`. App code always normalises the pair to `(min, max)` before storage and lookup — one row covers both directions.
+
+Routes:
+- `PUT /providers/{id}/branch_distances` — upsert (create or update), admin only
+- `GET /providers/{id}/branch_distances/{a}/{b}` — fetch, any authenticated
+- `DELETE /providers/{id}/branch_distances/{a}/{b}` — admin only
+
+Wrong-provider branch → 409. Nonexistent branch → 422. Same branch → 422 (Pydantic validator). Negative distance → 422 (`gt=0`). Missing pair → 404.
+
+**Bug found and fixed:** reusing a single `Path()` instance as the default for two function parameters causes FastAPI to read both from the same path segment. Fixed by using `Annotated[int, Path(...)]` as a type alias — each parameter gets its own `FieldInfo` instance.

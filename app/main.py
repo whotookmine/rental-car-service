@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 
 from app.auth.router import router as auth_router
 from app.bookings.router import router as bookings_router
+from app.branch_distances.router import router as branch_distances_router
 from app.branches.router import router as branches_router
 from app.core.config import get_settings
 from app.core.errors import validation_exception_handler
@@ -37,6 +38,7 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(providers_router)
 app.include_router(branches_router)
+app.include_router(branch_distances_router)
 app.include_router(bookings_router)
 app.include_router(reviews_router)
 app.include_router(vehicle_classes_router)
