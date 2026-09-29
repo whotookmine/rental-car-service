@@ -78,3 +78,11 @@ class ProviderRead(BaseModel):
     # which is distinct from a zero average that would imply the provider is terrible.
     average_rating: float | None = None
     review_count: int = 0
+
+
+class AvailabilityRow(BaseModel):
+    """One vehicle class's availability for a requested rental period."""
+
+    vehicle_class_id: int
+    name: str
+    free_count: int

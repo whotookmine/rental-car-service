@@ -1,18 +1,20 @@
 """Provider catalogue: browsing, creation, editing, and retirement."""
 
+from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, status
-from sqlalchemy import Numeric, func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import Numeric, func, select, text
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User, UserRole
 from app.bookings.models import Booking
+from app.bookings.schemas import validate_rental_period
 from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
-from app.providers.schemas import ProviderCreate, ProviderRead, ProviderUpdate
+from app.providers.schemas import AvailabilityRow, ProviderCreate, ProviderRead, ProviderUpdate
 from app.reviews.models import Review
 
 router = APIRouter(prefix="/providers", tags=["providers"])
@@ -110,6 +112,102 @@ def get_provider(
     db: Session = Depends(get_db),
 ) -> ProviderRead:
     return _fetch_one(provider.id, db)
+
+
+_AVAILABILITY_QUERY = text(
+    """
+    WITH days AS (
+        SELECT generate_series(
+            CAST(:start_date AS date),
+            CAST(:end_date AS date),
+            CAST('1 day' AS interval)
+        ) AS day
+    ),
+    class_capacity AS (
+        SELECT vc.id, vc.name, COUNT(v.id) AS cap
+        FROM vehicle_classes vc
+        LEFT JOIN vehicles v ON v.vehicle_class_id = vc.id
+        WHERE vc.provider_id = :provider_id
+        GROUP BY vc.id, vc.name
+    ),
+    daily_bookings AS (
+        SELECT cc.id AS vehicle_class_id, d.day, COUNT(b.id) AS taken
+        FROM days d
+        CROSS JOIN class_capacity cc
+        LEFT JOIN bookings b ON b.vehicle_class_id = cc.id
+            AND b.start_date <= d.day AND b.end_date >= d.day
+        GROUP BY cc.id, d.day
+    ),
+    peak_bookings AS (
+        SELECT vehicle_class_id, MAX(taken) AS peak
+        FROM daily_bookings
+        GROUP BY vehicle_class_id
+    )
+    SELECT
+        cc.id          AS vehicle_class_id,
+        cc.name        AS name,
+        GREATEST(0, CAST(cc.cap AS integer) - CAST(COALESCE(pb.peak, 0) AS integer))
+                       AS free_count
+    FROM class_capacity cc
+    LEFT JOIN peak_bookings pb ON pb.vehicle_class_id = cc.id
+    ORDER BY cc.id
+    """
+)
+
+
+@router.get(
+    "/{provider_id}/availability",
+    response_model=list[AvailabilityRow],
+    summary="Check vehicle class availability (authenticated)",
+    description=(
+        "Returns each vehicle class for the provider with the number of cars free "
+        "for the whole requested rental period. A class reporting zero is full; it "
+        "is never omitted. Retired providers are excluded. The same date rules as "
+        "booking apply: end on or after start, at most thirty days."
+    ),
+    responses={
+        404: {"description": "Provider not found."},
+        422: {"description": "Invalid date range."},
+    },
+)
+def get_availability(
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    provider: Provider = Depends(get_provider_or_404),
+    db: Session = Depends(get_db),
+) -> list[AvailabilityRow]:
+    try:
+        validate_rental_period(start_date, end_date)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+    # Retired providers are invisible here, matching the active catalogue list.
+    if provider.is_retired:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Provider not found.",
+        )
+
+    rows = db.execute(
+        _AVAILABILITY_QUERY,
+        {
+            "provider_id": provider.id,
+            "start_date": start_date,
+            "end_date": end_date,
+        },
+    ).fetchall()
+
+    return [
+        AvailabilityRow(
+            vehicle_class_id=row.vehicle_class_id,
+            name=row.name,
+            free_count=row.free_count,
+        )
+        for row in rows
+    ]
 
 
 @router.post(

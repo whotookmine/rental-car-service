@@ -139,6 +139,14 @@ No rule may call `date.today()` directly.
   full precision.
 - `GET /providers/{id}` returns retired providers too, so users can see who they booked.
 - `DELETE /providers/{id}` retires; it never removes the row.
+- `GET /providers/{id}/availability?start_date=&end_date=` returns the number of cars free
+  for the whole requested period for each of that provider's vehicle classes. A class with
+  no free car reports `free_count: 0` and is never omitted, so a caller can distinguish
+  "full" from "does not exist". Retired providers answer 404, matching the catalogue list.
+  The same date shape rules as booking creation apply (end on or after start, at most 30
+  days); violations answer 422. The no-past-start rule from booking creation does not apply.
+  The answer always agrees with what booking does: zero means booking is refused, one or
+  more means booking succeeds. Any authenticated caller may use this route.
 
 ### Vehicle classes
 
@@ -289,6 +297,8 @@ the error shape.
 | Booking with no vehicle class, or one outside integer range | 422 |
 | Booking a vehicle class that does not exist | 422 (a body value, not the path) |
 | Booking a vehicle class belonging to a different provider | 409 |
+| Availability search on a retired provider | 404 |
+| Availability search with end before start, or period over 30 days | 422 |
 | Booking a class whose vehicles are all taken on any day of the period | 409 |
 | Booking a class that has no vehicles at all | 409 |
 | Re-dating a booking into a period where its class is full | 409 |
