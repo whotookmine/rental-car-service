@@ -204,6 +204,23 @@ No rule may call `date.today()` directly.
   exists: the role is resolved before the lookup, and provider existence is readable by
   any authenticated user anyway.
 
+### Branches
+
+- A branch is a physical pickup location belonging to exactly one provider. A provider
+  must always have at least one branch. Removing the last branch is refused with 409.
+- A branch has a name, address, and telephone. The provider retains its own address and
+  telephone columns — those are the general business contact details in catalogue and
+  booking responses. A branch address is the specific pickup location.
+- Created under the provider (`POST /providers/{id}/branches`), listed there
+  (`GET /providers/{id}/branches`, ordered by name then id), and addressed directly:
+  `GET /branches/{id}`, `PATCH /branches/{id}`, `DELETE /branches/{id}`.
+- Reads are open to any authenticated caller; create, edit and remove are admin-only and
+  answer 403.
+- Removing a branch named by a booking answers 409 rather than cascading.
+- `DELETE /branches/{id}` answers 204 with no body.
+- Migration `cb0b6c819227` created the table and seeded one "Main Branch" per existing
+  provider using the provider's address and telephone, so no provider was left without one.
+
 ### Vehicle class surface
 
 - Created under the provider (`POST /providers/{id}/vehicle_classes`), since a class
@@ -297,6 +314,10 @@ the error shape.
 | Booking with no vehicle class, or one outside integer range | 422 |
 | Booking a vehicle class that does not exist | 422 (a body value, not the path) |
 | Booking a vehicle class belonging to a different provider | 409 |
+| Removing the last branch under a provider | 409 |
+| Removing a branch named by a booking | 409 |
+| A registered user on any branch write route | 403 |
+| Removing a branch | 204, no body |
 | Availability search on a retired provider | 404 |
 | Availability search with end before start, or period over 30 days | 422 |
 | Booking a class whose vehicles are all taken on any day of the period | 409 |
