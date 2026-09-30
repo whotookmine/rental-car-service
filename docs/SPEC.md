@@ -244,6 +244,26 @@ No rule may call `date.today()` directly.
   fee and an unknown one are different things.
 - `DELETE /providers/{id}/branch_distances/{a}/{b}` answers 204 with no body.
 
+### One-way routes
+
+- An admin enables one-way rental from one branch to another for the same provider.
+  Enablement is **directional**: enabling A→B does not enable B→A; each direction is an
+  independent row.
+- Enabling a pair that has no recorded distance is refused with 409, since the relocation
+  fee could not then be computed.
+- Enabled with `PUT /providers/{id}/one_way_routes` (body: `from_branch_id`,
+  `to_branch_id`). Idempotent: submitting an already-enabled pair returns the existing
+  row unchanged. Disabled with
+  `DELETE /providers/{id}/one_way_routes/{from_id}/{to_id}`, which answers 404 if the
+  route was not enabled. Listed with `GET /providers/{id}/one_way_routes`, ordered by
+  from_branch_id then to_branch_id.
+- Reads are open to any authenticated caller; enable and disable are admin-only (403).
+- A branch that does not exist answers 422; one that belongs to a different provider
+  answers 409. A branch paired with itself is refused with 422.
+- Disabling a route leaves any existing bookings that used it untouched.
+- Removing a branch cascades to its one-way routes (ON DELETE CASCADE on
+  `one_way_routes`).
+
 ### Vehicle class surface
 
 - Created under the provider (`POST /providers/{id}/vehicle_classes`), since a class
