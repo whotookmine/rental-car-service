@@ -52,6 +52,18 @@ class Booking(Base):
         index=True,
     )
 
+    # Optional. Null means the car returns to the pickup branch (ordinary case).
+    # When set to a different branch, the booking is a one-way rental and the
+    # provider must have enabled that direction. Fixed at creation for the same
+    # reason as pickup_branch_id. RESTRICT so that a branch in use cannot be
+    # removed without first removing the bookings that name it.
+    dropoff_branch_id: Mapped[int | None] = mapped_column(
+        ForeignKey("branches.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+        default=None,
+    )
+
     # Plain dates. A rental has no pickup or return time in this domain, and
     # storing an instant would invite timezone conversion to shift the day.
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -66,7 +78,14 @@ class Booking(Base):
     vehicle_class: Mapped[VehicleClass] = relationship(lazy="joined")
 
     # Joined for the same reason: every booking response names where to collect.
-    pickup_branch: Mapped[Branch] = relationship(lazy="joined")
+    pickup_branch: Mapped[Branch] = relationship(
+        foreign_keys=[pickup_branch_id], lazy="joined"
+    )
+
+    # Joined when present; null for round-trip bookings.
+    dropoff_branch: Mapped[Branch | None] = relationship(
+        foreign_keys=[dropoff_branch_id], lazy="joined"
+    )
 
     def __repr__(self) -> str:  # pragma: no cover
         return (

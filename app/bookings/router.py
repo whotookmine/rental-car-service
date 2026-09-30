@@ -11,6 +11,7 @@ from app.bookings.dependencies import get_visible_booking_or_404
 from app.bookings.models import Booking
 from app.bookings.rules import (
     ensure_class_has_room,
+    ensure_one_way_route_enabled,
     ensure_provider_is_active,
     ensure_reviewed_booking_stays_ended,
     ensure_room_for_another_booking,
@@ -59,13 +60,29 @@ def create_booking(
     db: Session = Depends(get_db),
 ) -> BookingRead:
     ensure_provider_is_active(provider)
-    # Both resolved before the cap is taken, so that a request naming the wrong
-    # class or branch is told what is actually wrong rather than being turned away
-    # for a limit it would still hit after fixing the bad value.
+    # All branches and the vehicle class are resolved before the cap is taken,
+    # so that a request naming the wrong class or branch is told what is actually
+    # wrong rather than being turned away for a limit it would still hit after
+    # fixing the bad value.
     vehicle_class = resolve_vehicle_class_for_provider(
         db, provider, payload.vehicle_class_id
     )
-    branch = resolve_branch_for_provider(db, provider, payload.pickup_branch_id)
+    pickup_branch = resolve_branch_for_provider(db, provider, payload.pickup_branch_id)
+
+    # Resolve the drop-off branch when one is named. Null means round-trip.
+    dropoff_branch = None
+    if payload.dropoff_branch_id is not None:
+        dropoff_branch = resolve_branch_for_provider(
+            db, provider, payload.dropoff_branch_id
+        )
+        # Only enforce the one-way check when the two branches differ. A caller
+        # who sends the same id for both is booking a round-trip and need not
+        # have enabled anything; treat it as omitted.
+        if dropoff_branch.id != pickup_branch.id:
+            ensure_one_way_route_enabled(db, pickup_branch, dropoff_branch)
+        else:
+            dropoff_branch = None  # same branch = round-trip; store null
+
     # The caller's own limit first, then the world's. It is the one they control
     # entirely -- they can free a slot by deleting a booking of their own -- and
     # checking it first skips the per-day capacity query for a request that was
@@ -83,7 +100,8 @@ def create_booking(
         user_id=current_user.id,
         provider_id=provider.id,
         vehicle_class_id=vehicle_class.id,
-        pickup_branch_id=branch.id,
+        pickup_branch_id=pickup_branch.id,
+        dropoff_branch_id=dropoff_branch.id if dropoff_branch else None,
         start_date=payload.start_date,
         end_date=payload.end_date,
     )

@@ -19,6 +19,7 @@ from app.auth.models import User
 from app.bookings.models import Booking
 from app.branches.models import Branch
 from app.core.clock import today
+from app.one_way_routes.models import OneWayRoute
 from app.reviews.models import Review
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
@@ -279,6 +280,23 @@ def ensure_room_for_another_booking(
         >= MAX_ACTIVE_BOOKINGS
     ):
         raise too_many_active_bookings(owner_is_caller=owner_is_caller)
+
+
+def ensure_one_way_route_enabled(
+    db: Session,
+    pickup_branch: Branch,
+    dropoff_branch: Branch,
+) -> None:
+    """Raise 409 if the provider has not enabled one-way service pickup→dropoff."""
+    row = db.get(OneWayRoute, (pickup_branch.id, dropoff_branch.id))
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"One-way rental from '{pickup_branch.name}' to "
+                f"'{dropoff_branch.name}' has not been enabled by this provider."
+            ),
+        )
 
 
 def ensure_reviewed_booking_stays_ended(db: Session, booking_id: int, new_end_date) -> None:

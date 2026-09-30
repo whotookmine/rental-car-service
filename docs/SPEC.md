@@ -58,6 +58,16 @@ No rule may call `date.today()` directly.
   provider answers 409. The branch is fixed at creation for the same reason as the vehicle
   class — it records where the car was collected — and sending `pickup_branch_id` when
   re-dating is refused with 422. The pickup branch is nested in every booking response.
+- A booking may also name a drop-off branch (`dropoff_branch_id`), which is optional.
+  Omitting it means returning to the pickup branch (the ordinary round-trip case).
+  When a drop-off branch is named and it differs from the pickup branch, the provider
+  must have enabled one-way service from the pickup to the drop-off branch; if it has not,
+  the request is refused with 409 naming the two branches. Sending the same id for both
+  pickup and drop-off is treated as a round-trip (null stored). The drop-off branch is
+  fixed at creation and appears nested in the booking response (null for round-trips).
+  A drop-off branch belonging to a different provider answers 409, exactly as the pickup
+  branch does. ON DELETE RESTRICT, so a branch named by a one-way booking cannot be
+  removed without first removing or re-pointing those bookings.
 - The vehicle class is fixed at creation, exactly as the provider is, and for the same
   reason: a review must keep describing what was actually rented. Sending either when
   re-dating is refused with 422, never ignored.

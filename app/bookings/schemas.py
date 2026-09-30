@@ -50,6 +50,11 @@ class BookingCreate(BaseModel):
     # provider and vehicle class. Must belong to the same provider as the path.
     pickup_branch_id: int = Field(ge=1, le=2147483647)
 
+    # Optional. Null means return to the pickup branch (round-trip, default).
+    # When set to a different branch, the provider must have enabled that
+    # one-way direction. Fixed at creation; omitting it is the ordinary case.
+    dropoff_branch_id: int | None = Field(default=None, ge=1, le=2147483647)
+
     start_date: date
     end_date: date
 
@@ -109,3 +114,6 @@ class BookingRead(BaseModel):
     # Nested: tells the renter where to go. Fixed at creation; re-dating carries
     # no branch field and `extra="forbid"` on BookingUpdate refuses it.
     pickup_branch: BranchRead
+
+    # Null for round-trip bookings; nested when a drop-off branch was named.
+    dropoff_branch: BranchRead | None = None
