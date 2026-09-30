@@ -11,7 +11,9 @@ booking that named a class would otherwise silently change which business it was
 with.
 """
 
-from sqlalchemy import ForeignKey, Index, String, Text, text
+from decimal import Decimal
+
+from sqlalchemy import ForeignKey, Index, Numeric, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -42,6 +44,14 @@ class VehicleClass(Base):
 
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Null means the class has not been priced yet, which is different from
+    # costing nothing. Zero is a valid rate and means free.
+    # NUMERIC(12,2): exact decimal, no float rounding. 12 digits total, 2 after
+    # the decimal point, so up to 9 999 999 999.99 per day.
+    daily_rate: Mapped[Decimal | None] = mapped_column(
+        Numeric(precision=12, scale=2), nullable=True, default=None
+    )
 
     provider: Mapped[Provider] = relationship(lazy="joined")
 

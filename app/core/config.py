@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Timezone that defines the business day for every date rule.
     business_timezone: str = Field(default="Asia/Bangkok", alias="BUSINESS_TIMEZONE")
 
+    # ISO 4217 currency code for all monetary amounts in the service.
+    currency: str = Field(default="THB", alias="CURRENCY")
+
     # Environment name: local | development | production.
     env: str = Field(default="local", alias="ENV")
 

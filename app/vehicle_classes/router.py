@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
+from app.core.config import get_settings
+from app.core.money import Money
 from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
@@ -46,11 +48,18 @@ def _counts_subquery():
 
 
 def _build_read(vehicle_class: VehicleClass, count: int | None) -> VehicleClassRead:
+    currency = get_settings().currency
+    daily_rate = (
+        Money(amount=vehicle_class.daily_rate, currency=currency)
+        if vehicle_class.daily_rate is not None
+        else None
+    )
     return VehicleClassRead(
         id=vehicle_class.id,
         provider_id=vehicle_class.provider_id,
         name=vehicle_class.name,
         description=vehicle_class.description,
+        daily_rate=daily_rate,
         vehicle_count=count or 0,
     )
 
@@ -153,6 +162,7 @@ def create_vehicle_class(
         provider_id=provider.id,
         name=payload.name,
         description=payload.description,
+        daily_rate=payload.daily_rate,
     )
     db.add(vehicle_class)
     try:
@@ -195,6 +205,10 @@ def update_vehicle_class(
         vehicle_class.name = payload.name
     if payload.description is not None:
         vehicle_class.description = payload.description
+    # Use model_fields_set to distinguish "not sent" from "sent as null".
+    # Sending null explicitly means "remove the price" (mark unpriced).
+    if "daily_rate" in payload.model_fields_set:
+        vehicle_class.daily_rate = payload.daily_rate
 
     try:
         db.commit()

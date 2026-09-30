@@ -274,6 +274,19 @@ No rule may call `date.today()` directly.
 - Removing a branch cascades to its one-way routes (ON DELETE CASCADE on
   `one_way_routes`).
 
+### Money
+
+- All monetary amounts are stored as exact decimals (`NUMERIC(12,2)`), never as floating
+  point. Two bookings with the same rate must produce the same total on every machine.
+- The service operates in a single currency, named in configuration as `CURRENCY`
+  (default `THB`). No currency conversion occurs.
+- Rounding is half-up to two decimal places, applied in one place (`app/core/money.py`).
+- Amounts appear in responses as `{"amount": "<string>", "currency": "<code>"}`. The
+  amount is a string to preserve the exact decimal value across the JSON boundary; a
+  JSON number would invite float conversion.
+- `null` means the item has not been priced yet ("unpriced"). Zero is a valid rate and
+  means free. These are never conflated.
+
 ### Vehicle class surface
 
 - Created under the provider (`POST /providers/{id}/vehicle_classes`), since a class
@@ -286,6 +299,11 @@ No rule may call `date.today()` directly.
 - `DELETE /vehicle_classes/{id}` answers 204 with no body. It really removes the row.
 - Reads are open to any authenticated caller; create, edit and remove are admin-only and
   answer 403, consistent with the provider routes they mirror.
+- A vehicle class carries an optional daily rate (`daily_rate`), set at creation or via
+  `PATCH`. A negative rate is refused with 422. Zero is valid (free). Null means
+  unpriced. Sending `daily_rate: null` in a `PATCH` removes the rate. Omitting
+  `daily_rate` from a `PATCH` leaves it unchanged. The rate appears in every vehicle
+  class response, including the summary nested in booking responses.
 
 ### Vehicle surface
 
