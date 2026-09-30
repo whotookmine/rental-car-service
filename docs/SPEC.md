@@ -318,6 +318,21 @@ No rule may call `date.today()` directly.
   thing is a value in the body, not the resource the path addresses, and the vehicle
   itself was found.
 
+### Quotation surface
+
+- `POST /providers/{id}/quotations` — any authenticated caller; unauthenticated is 401.
+- Accepts the same fields as booking creation: `vehicle_class_id`, `pickup_branch_id`,
+  `dropoff_branch_id` (optional), `start_date`, `end_date`. The same validation applies:
+  date ordering, 30-day maximum, no past start date, class and branches must belong to the
+  provider, one-way route must be enabled when a different drop-off branch is named.
+- Returns `{"lines": [...], "total": {...}}`. Each line has `description` and `amount`
+  (a `Money` object). The rental line is `daily_rate × rental_period_days`, where days
+  are counted inclusively. The total is the sum of all lines, rounded once using
+  `round_amount()` from `app/core/money.py`.
+- A vehicle class with no `daily_rate` set answers 409 ("unpriced").
+- A quotation reserves nothing; calling it twice with the same inputs returns the same
+  result.
+
 ### Booking surface
 
 - Created under the provider (`POST /providers/{id}/bookings`), since a booking cannot

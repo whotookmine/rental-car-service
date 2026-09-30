@@ -15,6 +15,7 @@ from app.reviews.router import router as reviews_router
 from app.vehicle_classes.router import router as vehicle_classes_router
 from app.vehicles.router import router as vehicles_router
 from app.one_way_routes.router import router as one_way_routes_router
+from app.quotations.router import router as quotations_router
 
 # Read and validate configuration before the app object exists, so a missing or
 # malformed environment variable stops startup loudly instead of surfacing as a
@@ -45,3 +46,4 @@ app.include_router(reviews_router)
 app.include_router(vehicle_classes_router)
 app.include_router(vehicles_router)
 app.include_router(one_way_routes_router)
+app.include_router(quotations_router)
