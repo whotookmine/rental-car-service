@@ -30,14 +30,15 @@ from app.vehicle_classes.models import VehicleClass
 from app.waitlist.dependencies import get_own_waitlist_entry_or_404
 from app.waitlist.models import WaitlistEntry
 from app.waitlist.rules import (
-    claim_is_live,
     claim_state,
+    classes_awaiting_settlement,
     ensure_class_is_full,
     is_active,
     offer_released_capacity,
     position_of,
     refuse_duplicate_place,
     resolve_class_for_provider,
+    settle_queue,
 )
 from app.waitlist.schemas import (
     ClaimConvert,
@@ -130,6 +131,11 @@ def join_waitlist(
         .with_for_update()
     )
 
+    # Settled first: a queue whose front claim lapsed days ago must be brought up to
+    # date before "is this class full?" is answered, or someone could be refused a
+    # place because of a hold that no longer exists.
+    settle_queue(db, vehicle_class.id)
+
     refuse_duplicate_place(
         db,
         user_id=current_user.id,
@@ -171,6 +177,28 @@ def list_my_waitlist_entries(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[WaitlistEntryRead]:
+    # **This read settles the queues it reports on, and that is deliberate.** There
+    # is no scheduler in this project, so a claim that lapsed overnight has to be
+    # noticed by somebody asking. Nothing is ever *wrong* in the meantime -- a claim
+    # past its expiry is never honoured, because liveness is computed rather than
+    # stored -- but the capacity it was holding has not yet been offered to the next
+    # person, and the obvious moment to do that is when someone looks at the queue.
+    #
+    # A GET with an effect is surprising enough to be worth stating plainly, so
+    # `docs/SPEC.md` says so too. The alternative is a background job, which this
+    # project does not have and which the ticket explicitly rules out.
+    #
+    # Only the queues this caller is actually in. Settling every queue in the system
+    # on every read would make one person's list a scan of the whole table.
+    for class_id in classes_awaiting_settlement(db, current_user.id):
+        db.execute(
+            select(VehicleClass.id)
+            .where(VehicleClass.id == class_id)
+            .with_for_update()
+        )
+        settle_queue(db, class_id)
+    db.commit()
+
     # Scoped from the token, with no parameter that could widen it.
     entries = db.scalars(
         select(WaitlistEntry)
@@ -284,6 +312,11 @@ def convert_claim(
         .where(VehicleClass.id == entry.vehicle_class_id)
         .with_for_update()
     )
+    # Settled before the claim is judged, so that someone arriving late finds their
+    # lapsed claim already passed on and is told that, rather than being told it has
+    # expired while the car sits unoffered.
+    settle_queue(db, entry.vehicle_class_id)
+    db.refresh(entry)
     _require_live_claim(db, entry)
 
     provider = db.get(Provider, entry.provider_id)
@@ -373,10 +406,18 @@ def decline_claim(
         .where(VehicleClass.id == entry.vehicle_class_id)
         .with_for_update()
     )
+    settle_queue(db, entry.vehicle_class_id)
+    db.refresh(entry)
     _require_live_claim(db, entry)
 
     entry.declined_at = now()
     db.flush()
+
+    # Declining releases the car at once, so the next person is offered it here
+    # rather than waiting for anyone to look. This is the same call that handles an
+    # expired claim, which is why "a declined claim passes on the same way" needed
+    # no separate rule.
+    settle_queue(db, entry.vehicle_class_id)
 
     db.commit()
     db.refresh(entry)

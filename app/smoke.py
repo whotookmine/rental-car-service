@@ -767,6 +767,11 @@ def main() -> int:
                     f"/waitlist_entries/{e2['id']}", token=admin)
             s.check("the first leaves", 204, "DELETE",
                     f"/waitlist_entries/{e1['id']}", token=q1)
+            # q1 rejoins, so there is somebody behind the claim holder for ticket
+            # 46's pass-on to reach.
+            e1b = s.check("the first rejoins behind the second", 201, "POST",
+                          f"/providers/{provider}/waitlist_entries", q_body,
+                          token=q1)
             # Leaving must close the gap, with no renumbering to go wrong.
             _, after = s.call("GET", "/waitlist_entries", token=q2)
             moved = (isinstance(after, list) and after
@@ -840,6 +845,36 @@ def main() -> int:
                 s.check("another user reaching for the claim", 404, "POST",
                         f"/waitlist_entries/{held['id']}/claim",
                         {"pickup_branch_id": branch}, token=user_a)
+                # Ticket 46: cancel the booking the claim became, which frees the car
+                # again, and the person still in the queue is offered it in turn.
+                if isinstance(taken, dict) and "id" in taken:
+                    s.check("cancel the converted booking", 204, "DELETE",
+                            f"/bookings/{taken['id']}", token=admin)
+                    if taken["id"] in s.booked:
+                        s.booked.remove(taken["id"])
+                    _, q1_rows = s.call("GET", "/waitlist_entries", token=q1)
+                    passed_on = (isinstance(q1_rows, list) and q1_rows
+                                 and q1_rows[0]["state"] == "claimed")
+                    if passed_on:
+                        s.passed += 1
+                        print("  pass  the release passes on to the next waiting  "
+                              "[claimed]")
+                    else:
+                        s.failed.append("the release passes on to the next waiting")
+                        print("  FAIL  the release passes on to the next waiting  "
+                              f"{q1_rows}")
+                    # Declining releases it at once and, with nobody left, the car
+                    # becomes bookable by anyone again.
+                    if passed_on:
+                        s.check("that holder declines", 200, "DELETE",
+                                f"/waitlist_entries/{q1_rows[0]['id']}/claim",
+                                token=q1)
+                        # A user of its own: user_a is at the three-active cap by
+                        # now, and borrowing them would fail for an unrelated reason.
+                        s.booking_check("the car is then bookable by anyone", 201,
+                                        f"/providers/{provider}/bookings",
+                                        {**q_body, "pickup_branch_id": branch},
+                                        s.register("free")[1])
             s.check("the second leaves too", 204, "DELETE",
                     f"/waitlist_entries/{e2['id']}", token=q2)
         s.check("an over-large entry id", 422, "DELETE",
@@ -952,6 +987,15 @@ def main() -> int:
                 f"/vehicles/{solo_car}", token=admin)
         s.check("remove the maintenance-test class", 204, "DELETE",
                 f"/vehicle_classes/{solo_class}", token=admin)
+        # Waitlist entries hold a RESTRICT key to their class, so they go before it.
+        # Converted and declined entries stay in the table by design -- they are the
+        # record of what happened -- so they have to be removed explicitly, each by
+        # the person who owns it, since there is no admin route into a queue.
+        for queue_user in (q1, q2):
+            _, left = s.call("GET", "/waitlist_entries", token=queue_user)
+            for row in left if isinstance(left, list) else []:
+                s.check(f"remove queue entry {row['id']}", 204, "DELETE",
+                        f"/waitlist_entries/{row['id']}", token=queue_user)
         s.check("remove the queue-test car", 204, "DELETE", f"/vehicles/{q_car}",
                 token=admin)
         s.check("remove the queue-test class", 204, "DELETE",
