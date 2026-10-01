@@ -435,15 +435,32 @@ the error shape.
 ## Seeding and testing
 
 `python -m app.seed` wipes and recreates demo data, and refuses to run when
-`ENV=production`. It creates 3–4 providers including one retired, one admin, two users,
-and for the demo user one ended booking (inserted through the ORM, bypassing the
-no-past-dates rule) plus one upcoming booking. Since ticket 25 it also creates one vehicle
-class per provider, and two for the first, because a booking cannot exist without one. It
-creates vehicles for each of those classes — three, one, two and one — since ticket 26
-made capacity real and a class with no cars refuses every booking. The counts differ on
-purpose, so a demo can fill the one-car class and see the refusal without making three
-bookings first. Ticket 47 rebuilds the fixture. It creates no reviews, so the demo
-performs the first one.
+`ENV=production`. Re-running is safe and always produces the same state.
+
+What it creates, and why each piece has to be there:
+
+| | | Why |
+|---|---|---|
+| 1 admin, 2 users | `admin`, `demo`, `fresh` | `demo` holds bookings to act on; `fresh` holds none, so registration and a first booking can be walked through live |
+| 4 providers | one of them retired | the retired one proves bookings survive retirement |
+| 5 branches | two under the first provider | a booking must name a pickup branch, so no provider is bookable without one; one-way needs two |
+| 1 inter-branch distance | Siam ↔ Don Mueang, 27.5 km | one-way enablement is refused without a recorded distance |
+| 1 one-way route | Siam → airport, **one direction only** | the directional refusal is the easiest one-way rule to get wrong, and enabling both ways would hide it |
+| 5 vehicle classes | one per provider, two for the first | a booking must name a class |
+| daily rates on 4 of the 5 | "Classic" left unpriced | so a quotation can be shown refusing to price a class rather than quoting zero |
+| 10 vehicles | Economy 3, SUV 1, Van 2, Classic 1 | a class with no cars refuses every booking; the uneven counts let a demo fill the one-car class in a single request |
+| 2 bookings for `demo` | one ended and one-way, one upcoming and round-trip | one of each shape; the ended one is reviewable, and the review has to attach to a finished rental |
+| 0 reviews | | the demo performs the first one |
+
+The ended booking is inserted through the ORM, bypassing the no-past-dates rule, which
+exists to protect users rather than to constrain fixtures.
+
+**The fixture is part of the contract.** Any ticket that makes a booking column required
+breaks `app/seed.py`, because the fixture writes bookings through the ORM and not through
+the API. This has happened twice: ticket 25 adding the vehicle class, and ticket 29 adding
+the pickup branch, which left the documented `python -m app.seed` command crashing on a
+`NotNullViolation`. Run the seed before closing any ticket that touches the booking model.
+Ticket 47 rebuilds the fixture.
 
 Testing is a committed Postman collection only; there is no automated suite. Dates in
 the collection are computed in pre-request scripts relative to now, never hardcoded, so

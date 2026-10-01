@@ -1,7 +1,7 @@
 """Demo seed data.
 
-Wipes all rows from bookings, providers, and users, then loads a fixed known
-state so the whole feature set can be demonstrated from scratch.
+Wipes every table it owns, then loads a fixed known state so the whole feature
+set can be demonstrated from scratch.
 
 Run with:
     uv run python -m app.seed
@@ -19,6 +19,7 @@ Clean user: fresh@example.com   / fresh1234  (no bookings — walk through regis
 
 import sys
 from datetime import timedelta
+from decimal import Decimal
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -26,23 +27,40 @@ from sqlalchemy.orm import Session
 from app.auth.models import User, UserRole
 from app.auth.security import hash_password
 from app.bookings.models import Booking
+from app.branch_distances.models import BranchDistance
+from app.branches.models import Branch
 from app.core.clock import today
 from app.core.config import get_settings
 from app.db.session import engine
+from app.one_way_routes.models import OneWayRoute
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
 from app.vehicles.models import Vehicle
 
 
+# Reverse dependency order. Bookings first, because they hold RESTRICT keys to
+# both vehicle classes and branches and so block everything else. Routes and
+# distances would cascade when their branches went, but deleting them explicitly
+# keeps this list a readable statement of what the fixture owns.
+_WIPE_ORDER = (
+    "bookings",
+    "vehicles",
+    "vehicle_classes",
+    "one_way_routes",
+    "branch_distances",
+    "branches",
+    "providers",
+    "users",
+)
+
+
 def _wipe(db: Session) -> None:
-    # Delete in FK-safe order: bookings first (reviews cascade with them), then
-    # vehicles and vehicle classes, which bookings and vehicles both point at
-    # with ON DELETE RESTRICT, and only then providers and users.
-    db.execute(text("DELETE FROM bookings"))
-    db.execute(text("DELETE FROM vehicles"))
-    db.execute(text("DELETE FROM vehicle_classes"))
-    db.execute(text("DELETE FROM providers"))
-    db.execute(text("DELETE FROM users"))
+    """Empty every table the fixture owns, children before parents.
+
+    Reviews are not listed: they cascade with the bookings they belong to.
+    """
+    for table in _WIPE_ORDER:
+        db.execute(text(f"DELETE FROM {table}"))
 
 
 def _users(db: Session) -> tuple[User, User, User]:
@@ -84,34 +102,106 @@ def _providers(db: Session) -> list[Provider]:
     return providers
 
 
+def _branches(db: Session, providers: list[Provider]) -> list[Branch]:
+    """Pickup locations. Every provider needs at least one; the first gets two.
+
+    A booking must name a pickup branch, so no provider can be bookable without
+    one. The first provider gets a second branch because a one-way rental needs
+    two, and the whole one-way feature is undemonstrable otherwise.
+    """
+    branches = [
+        Branch(
+            provider_id=providers[0].id,
+            name="Siam",
+            address="991 Rama I Rd, Bangkok",
+            telephone="021111101",
+        ),
+        Branch(
+            provider_id=providers[0].id,
+            name="Don Mueang Airport",
+            address="222 Vibhavadi Rangsit Rd, Bangkok",
+            telephone="021111102",
+        ),
+        Branch(
+            provider_id=providers[1].id,
+            name="Silom",
+            address="88 Silom Rd, Bangkok",
+            telephone="022222201",
+        ),
+        Branch(
+            provider_id=providers[2].id,
+            name="Rama IV",
+            address="45 Rama IV Rd, Bangkok",
+            telephone="023333301",
+        ),
+        Branch(
+            provider_id=providers[3].id,
+            name="Charoen Krung",
+            address="7 Charoen Krung Rd, Bangkok",
+            telephone="024444401",
+        ),
+    ]
+    db.add_all(branches)
+    db.flush()
+    return branches
+
+
+def _one_way_service(db: Session, branches: list[Branch]) -> None:
+    """A distance and a one-way enablement for the first provider's two branches.
+
+    Enabled in **one direction only**, Siam to the airport. That is deliberate:
+    the directional refusal is the easiest rule in the one-way feature to get
+    wrong, and a fixture that enables both ways would hide it. Attempting the
+    reverse is a conflict, which a demo can show in one request.
+
+    The distance has to exist first -- enabling a pair with no recorded distance
+    is refused, since the relocation fee could not be computed.
+    """
+    siam, airport = branches[0], branches[1]
+
+    # Canonical ordering: the smaller branch id is always stored first, which is
+    # how the model keeps one row covering a symmetric distance.
+    low, high = sorted((siam.id, airport.id))
+    db.add(BranchDistance(from_branch_id=low, to_branch_id=high, distance_km=27.5))
+    db.add(OneWayRoute(from_branch_id=siam.id, to_branch_id=airport.id))
+    db.flush()
+
+
 def _vehicle_classes(db: Session, providers: list[Provider]) -> list[VehicleClass]:
     """One kind of car per provider, plus a second for the first.
 
-    A booking now has to name a class, so the fixture needs somewhere for its
+    A booking has to name a class, so the fixture needs somewhere for its
     bookings to point. Two under the first provider so that a demo has something
-    to choose between. No vehicles are created: capacity is not enforced until
-    ticket 26, and ticket 47 rebuilds this fixture properly.
+    to choose between.
+
+    Daily rates are set on all but one. "Classic" is left unpriced on purpose, so
+    that a demo can show a quotation refusing to price a class rather than
+    quietly quoting zero. Ticket 47 rebuilds this fixture.
     """
     classes = [
         VehicleClass(
             provider_id=providers[0].id,
             name="Economy",
             description="Small, cheap, four seats.",
+            daily_rate=Decimal("1200.00"),
         ),
         VehicleClass(
             provider_id=providers[0].id,
             name="SUV",
             description="Seven seats and room for luggage.",
+            daily_rate=Decimal("2500.00"),
         ),
         VehicleClass(
             provider_id=providers[1].id,
             name="Economy",
             description="Small, cheap, four seats.",
+            daily_rate=Decimal("1100.50"),
         ),
         VehicleClass(
             provider_id=providers[2].id,
             name="Van",
             description="Twelve seats for a group.",
+            daily_rate=Decimal("3400.00"),
         ),
         VehicleClass(
             provider_id=providers[3].id,
@@ -155,25 +245,34 @@ def _bookings(
     demo_user: User,
     providers: list[Provider],
     classes: list[VehicleClass],
+    branches: list[Branch],
 ) -> None:
     t = today()
-    active_provider = providers[0]
 
     # Ended booking: inserted directly through the ORM to bypass the no-past-dates
     # rule, which exists to protect users rather than to constrain fixtures.
+    #
+    # Made one-way, Siam to the airport, which is the direction enabled above.
+    # It gives the fixture one booking of each shape, and it is the ended one
+    # deliberately: the demo review has to attach to a finished rental, and a
+    # one-way rental is the more interesting thing to have a review of.
     ended = Booking(
         user_id=demo_user.id,
-        provider_id=active_provider.id,
+        provider_id=providers[0].id,
         vehicle_class_id=classes[0].id,
+        pickup_branch_id=branches[0].id,
+        dropoff_branch_id=branches[1].id,
         start_date=t - timedelta(days=20),
         end_date=t - timedelta(days=5),
     )
 
-    # Upcoming booking: well within the 30-day maximum.
+    # Upcoming booking: well within the 30-day maximum, and a round trip --
+    # no drop-off branch, which is the ordinary case and must stay the simplest.
     upcoming = Booking(
         user_id=demo_user.id,
         provider_id=providers[1].id,
         vehicle_class_id=classes[2].id,
+        pickup_branch_id=branches[2].id,
         start_date=t + timedelta(days=5),
         end_date=t + timedelta(days=15),
     )
@@ -190,9 +289,11 @@ def seed() -> None:
         _wipe(db)
         _, demo, _ = _users(db)
         providers = _providers(db)
+        branches = _branches(db, providers)
+        _one_way_service(db, branches)
         classes = _vehicle_classes(db, providers)
         _vehicles(db, classes)
-        _bookings(db, demo, providers, classes)
+        _bookings(db, demo, providers, classes, branches)
         db.commit()
 
     print("Seed complete.")

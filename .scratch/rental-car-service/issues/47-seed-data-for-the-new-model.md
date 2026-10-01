@@ -33,3 +33,17 @@ Blocked on Time's 41 and 46 as well as your own 38. This is the integration poin
 both halves of the round meet for the first time, so expect to find disagreements between
 them here rather than earlier. Tickets 48 and 49 follow it and are also yours, so the whole
 tail is one person's — nothing bounces back.
+
+
+## Note from Time — what the fixture already guarantees
+
+Patched up to the current model on 2026-10-02 after ticket 29 left it crashing. It now
+covers: branches for every provider, two for the first; one inter-branch distance; one
+one-way enablement **in a single direction** so the directional refusal stays demonstrable;
+daily rates on all but one class, "Classic" left unpriced so an unpriceable quotation can
+be shown; uneven vehicle counts so the one-car class can be filled in one request; and two
+bookings of different shapes, the ended one being one-way and reviewable.
+
+Each of those exists to make one rule demonstrable rather than to look full. Keep that
+property when rebuilding it — a fixture where everything is enabled hides exactly the
+refusals a demo needs to show. `docs/SPEC.md` has the table.
