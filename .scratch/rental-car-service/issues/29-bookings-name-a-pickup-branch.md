@@ -43,3 +43,24 @@ Blocked on Time's ticket 25, which adds the vehicle class to a booking. You can 
 This is also where you start editing `app/bookings/`, which Time is editing in 25, 26 and
 41. Pull before you start and land your booking-touching tickets (29, 32, 37) one at a
 time.
+
+
+## Follow-up from Time — the seed was left broken
+
+Making `pickup_branch_id` NOT NULL broke `app/seed.py`, which writes bookings through the
+ORM rather than the API. `uv run python -m app.seed` — a command the README documents —
+died with:
+
+```
+sqlalchemy.exc.IntegrityError: null value in column "pickup_branch_id"
+of relation "bookings" violates not-null constraint
+```
+
+Found on 2026-10-02 while checking the pull. Fixed in a separate commit rather than here:
+the fixture now creates branches for every provider, a distance and a one-way enablement
+for the first provider's pair, and gives both seeded bookings a pickup branch. No change
+to this ticket's own behaviour, which was correct.
+
+This is the second time a required booking column has killed the fixture — ticket 25 was
+the first — so `CLAUDE.md` now says to run the seed before closing any ticket that touches
+a model.

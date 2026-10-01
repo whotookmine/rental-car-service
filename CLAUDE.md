@@ -34,7 +34,10 @@ slice that is demoable on its own. Every ticket file carries:
    criteria are the definition of done — not your reading of the requirement.
 3. **Branch**: `feat/NN-short-slug` off `main`.
 4. **Build only that ticket.** See Scope, below.
-5. **Verify by running it**, not by reading it. See Verification, below.
+5. **Verify by running it**, not by reading it. See Verification, below. If the ticket
+   touched a model, run `uv run python -m app.seed` as part of that: the fixture writes
+   rows through the ORM rather than the API, so a newly required column breaks it silently
+   until someone tries to demo. It has already happened twice.
 6. **Tick the boxes and set `Status: done`** in the ticket file, in the same branch. Add a
    `## Notes` section for anything a reader would otherwise have to rediscover: judgement
    calls, deviations, things deliberately left out, things found while testing.
