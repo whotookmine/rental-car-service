@@ -162,11 +162,11 @@ in the demo script and the Postman collection.
 | # | Requirement clause | Status | Where / what is missing |
 |---|---|---|---|
 | **4** | Join a waitlist for a fully-booked vehicle class on a date range | ❌ not built | Ticket 43 |
-| 4a | Notify waitlisted users | ❌ not built | Ticket 42 |
+| 4a | Notify waitlisted users | ◐ substrate built, nothing emits | Ticket 42 built the notification records and the read surface (`GET /notifications`, `POST /notifications/{id}/read`), verified end to end. **Nothing produces one yet** — the waitlist is the first producer, so this clause is not met until ticket 44 |
 | 4b | Strict FIFO release on cancellation | ❌ not built | Ticket 44 |
 | 4c | Time-limited exclusive claim window | ❌ not built | Ticket 45 |
 | 4d | Expiry passes the claim to the next in the queue | ❌ not built | Ticket 46 |
-| | | | *No route and no table: `/waitlist`, `/providers/1/waitlist`, `/notifications` all answer `404`* |
+| | | | *No waitlist route and no waitlist table: `/waitlist` and `/providers/1/waitlist` answer `404`. `/notifications` now exists and works, but has nothing to report* |
 | **5** | One-way rentals, drop-off differs from pickup | ✅ built | `dropoff_branch_id` on `POST /providers/{id}/bookings` (tickets 31, 32). Verified: enabled direction 1→2 → `201` |
 | 5a | **Blocked** unless the provider enabled one-way service between those branches | ✅ built | Verified: the unenabled reverse direction 2→1 → `409 "One-way rental from 'Don Mueang Airport' to 'Siam' has not been enabled by this provider."` Enablement is directional on purpose |
 | 5b | **Automatically compute a relocation fee from the inter-branch distance** | ❌ **not built** | Ticket 35. The quotation exists (ticket 34) and the distances exist (ticket 30), but the fee is not among the lines. Verified: a one-way quotation returns only `"Economy × 2 days @ THB 1200.00/day"`, total `2400.00` — **no relocation line** |

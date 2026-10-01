@@ -29,9 +29,10 @@ from app.auth.security import hash_password
 from app.bookings.models import Booking
 from app.branch_distances.models import BranchDistance
 from app.branches.models import Branch
-from app.core.clock import today
+from app.core.clock import now, today
 from app.core.config import get_settings
 from app.db.session import engine
+from app.notifications.models import Notification, NotificationKind
 from app.one_way_routes.models import OneWayRoute
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
@@ -49,6 +50,7 @@ from app.vehicles.models import Vehicle
 # ticket 25's vehicle class and ticket 29's pickup branch -- and the first time it
 # was caught before merging rather than by someone trying to demo.
 _WIPE_ORDER = (
+    "notifications",
     "blackout_windows",
     "bookings",
     "vehicles",
@@ -285,6 +287,56 @@ def _bookings(
     )
 
     db.add_all([ended, upcoming])
+    return ended, upcoming
+
+
+def _notifications(
+    db: Session,
+    demo_user: User,
+    providers: list[Provider],
+    ended: Booking,
+    upcoming: Booking,
+) -> None:
+    """A couple of notifications for the demo user.
+
+    **Nothing in the service emits a notification yet.** The waitlist is the first
+    producer (tickets 43 to 46), so without these rows `GET /notifications` could
+    only ever be demonstrated returning an empty list, and marking one read could
+    not be demonstrated at all.
+
+    Both describe something that is **actually true of this fixture** rather than
+    an invented event: the demo user really does hold an ended booking that is
+    waiting to be reviewed, and really does hold one starting soon. A fixture that
+    asserts a fact the rest of the fixture contradicts is worse than no fixture.
+
+    One read and one unread, because "newest first" and "has it been read" are both
+    only visible when the rows differ.
+    """
+    db.add_all(
+        [
+            # Older, and already read.
+            Notification(
+                user_id=demo_user.id,
+                kind=NotificationKind.booking_confirmed,
+                message=(
+                    f"Your booking with {providers[1].name} starts on "
+                    f"{upcoming.start_date}."
+                ),
+                created_at=now() - timedelta(days=4),
+                read_at=now() - timedelta(days=3),
+            ),
+            # Newer, and unread, so it sorts first and a demo has something to mark.
+            Notification(
+                user_id=demo_user.id,
+                kind=NotificationKind.booking_ended,
+                message=(
+                    f"Your rental with {providers[0].name} ended on "
+                    f"{ended.end_date}. You can now leave a review."
+                ),
+                created_at=now() - timedelta(days=1),
+            ),
+        ]
+    )
 
 
 def seed() -> None:
@@ -300,7 +352,12 @@ def seed() -> None:
         _one_way_service(db, branches)
         classes = _vehicle_classes(db, providers)
         _vehicles(db, classes)
-        _bookings(db, demo, providers, classes, branches)
+        ended, upcoming = _bookings(db, demo, providers, classes, branches)
+        # Flushed so the bookings have the dates the notifications quote; they are
+        # already set, but flushing keeps the dependency explicit rather than
+        # relying on attribute order.
+        db.flush()
+        _notifications(db, demo, providers, ended, upcoming)
         db.commit()
 
     print("Seed complete.")
@@ -308,6 +365,8 @@ def seed() -> None:
     print("  Admin:      admin@example.com  / admin1234")
     print("  Demo user:  demo@example.com   / demo1234   (ended + upcoming booking)")
     print("  Clean user: fresh@example.com  / fresh1234  (no bookings)")
+    print()
+    print("  The demo user also holds 2 notifications, one of them unread.")
 
 
 if __name__ == "__main__":

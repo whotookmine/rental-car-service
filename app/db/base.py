@@ -19,3 +19,4 @@ from app.vehicle_classes.models import VehicleClass as VehicleClass  # noqa: F40
 from app.vehicles.models import Vehicle as Vehicle  # noqa: F401
 from app.one_way_routes.models import OneWayRoute as OneWayRoute  # noqa: F401
 from app.blackout_windows.models import BlackoutWindow as BlackoutWindow  # noqa: F401
+from app.notifications.models import Notification as Notification  # noqa: F401

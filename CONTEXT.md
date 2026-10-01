@@ -55,6 +55,12 @@ provider of one of their own bookings, once that booking's rental period has end
 At most one review exists per booking.
 _Avoid_: Rating, feedback, comment, testimonial
 
+**Notification**:
+A record the system writes to tell one registered user something, which that user reads
+and may mark as read. Addressed to a person, never broadcast, and never created by a
+request — only by a rule inside the system.
+_Avoid_: Alert, message, email, push, inbox item
+
 **Registered User**:
 A person who has registered and may book, and who may review providers they have
 booked. Never an admin.
