@@ -42,7 +42,14 @@ from app.vehicles.models import Vehicle
 # both vehicle classes and branches and so block everything else. Routes and
 # distances would cascade when their branches went, but deleting them explicitly
 # keeps this list a readable statement of what the fixture owns.
+#
+# **Every new table that references one of these with RESTRICT has to be added
+# here, above the table it points at.** Ticket 39's blackout windows were the
+# third time this list went stale and broke the documented seed command -- after
+# ticket 25's vehicle class and ticket 29's pickup branch -- and the first time it
+# was caught before merging rather than by someone trying to demo.
 _WIPE_ORDER = (
+    "blackout_windows",
     "bookings",
     "vehicles",
     "vehicle_classes",

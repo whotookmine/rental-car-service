@@ -524,6 +524,62 @@ def main() -> int:
             s.check("clean up, leaving no reviews behind", 204, "DELETE",
                     f"/reviews/{again['id']}", token=admin)
 
+        print("\n## maintenance blackout windows")
+        # On a throwaway car of its own, so the seeded fleet keeps the capacity it
+        # is documented as having and the RESTRICT check below can end by removing
+        # the vehicle it made.
+        made = s.check("add a throwaway vehicle", 201, "POST",
+                       f"/vehicle_classes/{klass}/vehicles",
+                       {"plate": f"SMOKE-{os.getpid()}"}, token=admin)
+        vehicle = made["id"] if isinstance(made, dict) else None
+        windows: list[int] = []
+
+        def window(label: str, expected: int, start: int, end: int) -> None:
+            payload = s.check(label, expected, "POST",
+                              f"/vehicles/{vehicle}/blackout_windows",
+                              {"start_date": d(start), "end_date": d(end)}, token=admin)
+            if isinstance(payload, dict) and "id" in payload:
+                windows.append(payload["id"])
+
+        window("schedule a blackout window", 201, 40, 44)
+        window("a single-day window", 201, 50, 50)
+        window("end date before start date", 422, 44, 40)
+        window("an overlapping window", 409, 42, 46)
+        window("one wholly inside it", 409, 41, 43)
+        # The boundary, stated in docs/SPEC.md: inclusive at both ends, so a window
+        # ending the day before another starts is adjacent, not overlapping.
+        window("an adjacent window ending the day before", 201, 38, 39)
+        window("an adjacent window starting the day after", 201, 45, 46)
+        s.check("a window in the past", 201, "POST",
+                f"/vehicles/{vehicle}/blackout_windows",
+                {"start_date": d(-30), "end_date": d(-25)}, token=admin)
+        s.check("an unexpected field on a window", 422, "POST",
+                f"/vehicles/{vehicle}/blackout_windows",
+                {"start_date": d(60), "end_date": d(61), "reason": "oil"}, token=admin)
+        s.check("a registered user reading windows", 200, "GET",
+                f"/vehicles/{vehicle}/blackout_windows", token=user_a)
+        s.check("anonymous reading windows", 401, "GET",
+                f"/vehicles/{vehicle}/blackout_windows")
+        s.check("a registered user scheduling one", 403, "POST",
+                f"/vehicles/{vehicle}/blackout_windows",
+                {"start_date": d(70), "end_date": d(71)}, token=user_a)
+        s.check("a window on a vehicle that does not exist", 404, "POST",
+                "/vehicles/99999999/blackout_windows",
+                {"start_date": d(70), "end_date": d(71)}, token=admin)
+        if windows:
+            s.check("re-date a window", 200, "PUT", f"/blackout_windows/{windows[0]}",
+                    {"start_date": d(40), "end_date": d(43)}, token=admin)
+            s.check("a window may not move to another vehicle", 422, "PUT",
+                    f"/blackout_windows/{windows[0]}",
+                    {"start_date": d(40), "end_date": d(43), "vehicle_id": vehicle},
+                    token=admin)
+            s.check("a registered user re-dating one", 403, "PUT",
+                    f"/blackout_windows/{windows[0]}",
+                    {"start_date": d(40), "end_date": d(43)}, token=user_a)
+        # RESTRICT: the car cannot go while it still has a service history.
+        s.check("a vehicle with a window cannot be removed", 409, "DELETE",
+                f"/vehicles/{vehicle}", token=admin)
+
         print("\n## quotation")
         s.check("quote a rental", 200, "POST", f"/providers/{provider}/quotations",
                 booking(10, 12), token=user_a)
@@ -553,6 +609,15 @@ def main() -> int:
         for booking_id in list(s.booked):
             s.check(f"remove booking {booking_id} created by this run", 204, "DELETE",
                     f"/bookings/{booking_id}", token=admin)
+        # Windows first, then the car: the RESTRICT just demonstrated above means
+        # the other order cannot work, which is itself worth leaving visible.
+        for path in (f"/vehicles/{vehicle}/blackout_windows",):
+            _, rows = s.call("GET", path, token=admin)
+            for row in rows if isinstance(rows, list) else []:
+                s.check(f"cancel window {row['id']} created by this run", 204, "DELETE",
+                        f"/blackout_windows/{row['id']}", token=admin)
+        s.check("remove the throwaway vehicle", 204, "DELETE", f"/vehicles/{vehicle}",
+                token=admin)
 
     except Precondition as error:
         print(f"\nPRECONDITION NOT MET: {error}")

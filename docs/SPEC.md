@@ -31,6 +31,8 @@ than a whole business. Since ticket 25 a booking names one.
   car. Belongs to exactly one provider for its whole life.
 - **Vehicle** — vehicle class, plate (unique system-wide). One individual car.
 - **Booking** — user, provider, vehicle class, `start_date`, `end_date` (both `DATE`).
+- **Blackout Window** — vehicle, `start_date`, `end_date` (both `DATE`, inclusive). A
+  period one car is off the road for servicing. No two on one vehicle may overlap.
 - **Review** — booking (unique), rating 1–5, comment.
 
 ## Dates
@@ -205,11 +207,50 @@ No rule may call `date.today()` directly.
   removed outside the one code path that maintains it. It is the capacity that becomes
   enforceable in ticket 26; nothing yet refuses a booking because of it.
 - Removing a vehicle is a real delete, but a car that anything else still points at — a
-  maintenance blackout window, once ticket 39 lands — is refused with 409 rather than
-  cascading. Every table that comes to reference a vehicle does so `ON DELETE RESTRICT`.
+  maintenance blackout window, since ticket 39 — is refused with 409 rather than
+  cascading. Every table that references a vehicle does so `ON DELETE RESTRICT`.
 - A vehicle's own foreign key to its class is `ON DELETE RESTRICT`, which is what makes
   the vehicle class in-use refusal above real: removing a class that still has cars in it
   answers 409.
+
+### Maintenance blackout windows
+
+- A **blackout window** is a period during which one vehicle is off the road for
+  servicing. Scheduled per vehicle, never per vehicle class: a workshop takes one car in,
+  not a category. This is the feature individual vehicles were modelled for.
+- Dates are inclusive at both ends, like every other period here: a window whose start
+  and end dates are equal is one day.
+- **A window may be scheduled wholly in the past.** A rental cannot, because nobody can
+  rent a car for days that have gone; a service can certainly have happened last week,
+  and recording it is how the schedule stays honest. An admin correcting last month's
+  entry is ordinary work.
+- **There is no maximum length.** A rental period caps at thirty days so one booking
+  cannot hold a slot indefinitely. A car can be off the road for months after a crash,
+  and a cap would only force an admin to record it in instalments.
+- **Two windows on the same vehicle may not overlap: the second is refused with 409, not
+  merged.** Both were available and the choice is recorded here because it is visible
+  behaviour. Merging would answer a different request from the one that was sent — an
+  admin asking for the 10th to the 12th would get 201 and find a window from the 1st to
+  the 20th — and the two service visits that produced them would become one record
+  matching neither. The refusal names the window in the way and the two remedies the
+  surface already supports: widen it, or cancel it.
+- **The overlap boundary.** Inclusive, so adjacency is not overlap: a window ending on
+  the 9th does not clash with one starting on the 10th, and a one-day window clashes only
+  with periods containing that very day. Guaranteed by an exclusion constraint,
+  `EXCLUDE USING gist (vehicle_id WITH =, daterange(start_date, end_date, '[]') WITH &&)`,
+  which needs the `btree_gist` extension — created by the migration, trusted since
+  PostgreSQL 13 so no superuser is required.
+- Scheduling takes a row lock on the vehicle first, for the same reason the capacity rule
+  locks the vehicle class: checking and then inserting is a race. **Lock order** is owner,
+  then vehicle class, then vehicle — every path that takes more than one takes them this
+  way round.
+- A window carries no free-text reason. Nothing asks for one, and an empty field invites
+  being filled with the rule it was meant to explain.
+- A window's foreign key to its vehicle is `ON DELETE RESTRICT`: a car with a service
+  history cannot be removed until its windows are cancelled, which answers 409.
+- **Nothing is enforced against a window yet.** A blackout neither reduces availability
+  nor refuses a booking; it is a record. Availability follows in ticket 40 and the booking
+  refusal in ticket 41. Until both land, a car can be booked while it is in the workshop.
 
 ### Authorization
 
@@ -328,6 +369,24 @@ No rule may call `date.today()` directly.
   thing is a value in the body, not the resource the path addresses, and the vehicle
   itself was found.
 
+### Blackout window surface
+
+- Created and listed under the vehicle (`POST` / `GET
+  /vehicles/{id}/blackout_windows`, ordered by start date then id), then addressed
+  directly: `GET /blackout_windows/{id}`, `PUT /blackout_windows/{id}`,
+  `DELETE /blackout_windows/{id}`.
+- **Reading is open to any authenticated user; writing is admin-only (403).** This is the
+  one place a vehicle-shaped route is readable by a registered user, and deliberately so:
+  that a car is off the road is not confidential, and a renter who has been refused has a
+  right to see why. The plate is still not exposed — a window carries `vehicle_id`, and
+  the refusal message that names a plate goes only to the admin who caused it.
+- `PUT` replaces the period and carries no `vehicle_id`; sending one answers 422. A window
+  records what happened to a particular car, so pointing it at another car would not be an
+  edit but a fabrication. Cancel it and schedule one on the right car.
+- `DELETE /blackout_windows/{id}` answers 204 with no body. Nothing references a window,
+  so it never conflicts; the car is back on the road immediately and there is no cancelled
+  state to inspect.
+
 ### Quotation surface
 
 - `POST /providers/{id}/quotations` — any authenticated caller; unauthenticated is 401.
@@ -441,6 +500,16 @@ the error shape.
 | Removing a vehicle that something still references | 409 |
 | A registered user on any vehicle route, read or write | 403 |
 | Removing a vehicle | 204, no body |
+| Scheduling a blackout window overlapping another on the same vehicle | 409 — refused, never merged |
+| A blackout window adjacent to another (ending the day before it starts) | 201 — adjacency is not overlap |
+| A blackout window with `end_date` before `start_date` | 422 |
+| A blackout window wholly in the past | 201 — a service that happened is a fact |
+| Sending `vehicle_id` when re-dating a blackout window | 422 — refused, never silently ignored |
+| Scheduling a blackout window on a vehicle that does not exist | 404 |
+| A registered user reading blackout windows | 200 — the one vehicle-shaped read a user may do |
+| A registered user on a blackout window write route | 403, whether or not the window exists |
+| Removing a vehicle that has a blackout window | 409 |
+| Cancelling a blackout window | 204, no body |
 
 ## Seeding and testing
 
@@ -465,11 +534,21 @@ What it creates, and why each piece has to be there:
 The ended booking is inserted through the ORM, bypassing the no-past-dates rule, which
 exists to protect users rather than to constrain fixtures.
 
-**The fixture is part of the contract.** Any ticket that makes a booking column required
-breaks `app/seed.py`, because the fixture writes bookings through the ORM and not through
-the API. This has happened twice: ticket 25 adding the vehicle class, and ticket 29 adding
-the pickup branch, which left the documented `python -m app.seed` command crashing on a
-`NotNullViolation`. Run the seed before closing any ticket that touches the booking model.
+**The fixture is part of the contract**, and it has now broken three times, in two
+different ways:
+
+- **A newly required column.** The fixture writes rows through the ORM, not the API, so a
+  column that becomes `NOT NULL` crashes it on a `NotNullViolation`. Ticket 25's vehicle
+  class and ticket 29's pickup branch both did this, and both were found by someone trying
+  to demo rather than by the ticket that caused them.
+- **A new table referencing an existing one with `ON DELETE RESTRICT`.** The wipe runs
+  children before parents, so a table missing from `_WIPE_ORDER` blocks the delete of the
+  one it points at. Ticket 39's blackout windows did this — caught before merging, because
+  running the seed is now part of closing a ticket.
+
+So: **run `uv run python -m app.seed` before closing any ticket that adds a table or
+touches a model**, and if the new table references another with `RESTRICT`, add it to
+`_WIPE_ORDER` above the table it points at.
 Ticket 47 rebuilds the fixture.
 
 ### Verification

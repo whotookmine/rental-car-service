@@ -7,8 +7,8 @@ built, and this file is the brief we were handed. When the two disagree, this on
 requirement and `docs/SPEC.md` is the design — but neither may contradict the other
 silently.
 
-Last audited against a running app and a real PostgreSQL on **2026-10-02**, at
-`523b82b` plus this commit. The schema was rebuilt from empty (`downgrade base` →
+Last audited against a running app and a real PostgreSQL on **2026-10-02**. Requirement 7's
+first clause was re-audited when ticket 39 landed; every other row dates from that audit. The schema was rebuilt from empty (`downgrade base` →
 `upgrade head`, `alembic check` clean) and seeded with `uv run python -m app.seed` before
 the audit, so every result below came from the committed fixture and not from a hand-made
 database.
@@ -173,7 +173,7 @@ in the demo script and the Postman collection.
 | **6** | Request vehicle delivery to and collection from an address | ❌ not built | Ticket 37 |
 | 6a | Validate the address is within the provider's delivery radius | ❌ not built | Ticket 36 |
 | 6b | Distance-tiered delivery charge added to the quotation | ❌ not built | Ticket 38 |
-| **7** | Schedule maintenance blackout windows **per vehicle** | ❌ not built | Ticket 39 |
+| **7** | Schedule maintenance blackout windows **per vehicle** | ✅ built | Ticket 39. `POST`/`GET /vehicles/{id}/blackout_windows`, `GET`/`PUT`/`DELETE /blackout_windows/{id}`. Verified: scheduled 201, overlapping 409, adjacent 201, past 201, registered-user write 403, vehicle with a window `DELETE` 409 |
 | 7a | Blacked-out vehicles excluded from availability searches | ❌ not built | Ticket 40. `GET /providers/{id}/availability` exists (ticket 27) and currently counts every vehicle |
 | 7b | Any booking overlapping a blackout is prevented | ❌ not built | Ticket 41 |
 
@@ -187,6 +187,9 @@ delivery or blackouts.
 
 In the order that matters:
 
+0. Requirement 7's remaining two clauses, **tickets 40 and 41** — the schedule now exists
+   but nothing is enforced against it, so a car can still be booked while it is in the
+   workshop. Requirement 7 reads as half-done in exactly the way requirement 5 does.
 1. **Ticket 22 — Postman collection and README.** The only *named* deliverable in the
    non-functional requirements, and the only thing in round one that is missing. Owner
    Garfield. Ticket 49 then extends the collection to the round-two surface.
