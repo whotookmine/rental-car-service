@@ -472,6 +472,34 @@ the pickup branch, which left the documented `python -m app.seed` command crashi
 `NotNullViolation`. Run the seed before closing any ticket that touches the booking model.
 Ticket 47 rebuilds the fixture.
 
-Testing is a committed Postman collection only; there is no automated suite. Dates in
-the collection are computed in pre-request scripts relative to now, never hardcoded, so
-that requests do not go stale.
+### Verification
+
+There is **no automated test suite** — no unit tests, nothing in CI, nothing mocked. That
+decision stands. Two things exist instead, and they are not the same thing:
+
+| | What it is | What it is for |
+|---|---|---|
+| `python -m app.smoke` | One command that calls the real API over HTTP against a running app and a seeded database, asserting **status codes only** | Catching a break. Ours, not a reader's |
+| The Postman collection (ticket 22) | Requests organised by area, asserting on payloads, with a README walkthrough | Demonstrating behaviour. What a reader is shown |
+
+`app/smoke.py` is deliberately **not** the suite that was decided against: it is a single
+script with no framework, no fixtures and no mocks, which a developer runs by hand. It
+asserts status codes and nothing else, because response shapes churn — a booking's request
+body has gained three fields since the collection was first specified — and a check that
+fails whenever someone adds a column is a check people learn to ignore. `201` stays `201`
+when a payload grows a field, so a failure there is always real.
+
+It discovers providers, classes, branches and one-way routes through the API rather than
+assuming seeded ids, computes dates through `today()` so it cannot disagree with the server
+about the date, registers its own throwaway users, and deletes every booking and review it
+creates — so it can be run repeatedly without re-seeding. It exits `0` on success, `1` on a
+failed check, and `2` when its preconditions are not met, which is the case that would
+otherwise read as a wall of false failures.
+
+It exists because three defects on this project were found by accident rather than by
+checking: `app/seed.py` broke twice when a booking column became required (tickets 25 and
+29), and `OneWayRouteEnable` silently discarded a field and answered 200. All three are
+first-failure material for a run like this.
+
+Dates in the Postman collection are computed in pre-request scripts relative to now, never
+hardcoded, so that requests do not go stale.

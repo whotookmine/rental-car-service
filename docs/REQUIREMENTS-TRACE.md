@@ -208,7 +208,8 @@ uv run python -m app.seed
 uv run uvicorn app.main:app --port 8000
 ```
 
-Then walk the matrix. Credentials come from the seed output: `admin@example.com/admin1234`,
+Then `uv run python -m app.smoke`, which re-checks 80 of the status codes in the matrix in
+one command, and walk the rest by hand. Credentials come from the seed output: `admin@example.com/admin1234`,
 `demo@example.com/demo1234` (one ended and one upcoming booking),
 `fresh@example.com/fresh1234` (none). Note that the seed's dates are relative to the day it
 runs, so re-seed rather than reusing a week-old database.

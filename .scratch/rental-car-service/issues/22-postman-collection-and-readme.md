@@ -2,9 +2,8 @@
 
 **What to build:** The deliverable the requirements actually name: a committed Postman
 collection through which the whole system is exercised, plus documentation for standing it
-up and walking through a demo. Since there is no automated test suite, this collection is
-the only verification the project has — so its negative cases matter more than its happy
-paths.
+up and walking through a demo. Since there is no automated test suite, its negative
+cases matter more than its happy paths.
 
 **Blocked by:** 16, 17, 18, 19, 20, 21
 
@@ -61,3 +60,10 @@ Two things worth knowing before you start:
 
 Ticket 49 then extends the collection to the round-two surface; this one only has to cover
 what round one asked for.
+
+**One line of this ticket was no longer true and has been corrected above.** It used to say
+the collection is "the only verification the project has". Ticket 51 added
+`uv run python -m app.smoke`, a status-code run over the whole service, so that is no longer
+the case — which lowers the stakes on this ticket slightly but does not replace it. The
+smoke run catches breakage for us; the collection demonstrates behaviour to a reader, which
+is what the usability requirement actually asks for.
