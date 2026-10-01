@@ -576,6 +576,68 @@ def main() -> int:
             s.check("a registered user re-dating one", 403, "PUT",
                     f"/blackout_windows/{windows[0]}",
                     {"start_date": d(40), "end_date": d(43)}, token=user_a)
+        # Ticket 40: a car in the workshop leaves availability. The throwaway
+        # vehicle above is in `klass`, so its windows move that class's count.
+        def free_count(start: int, end: int) -> int | None:
+            _, rows = s.call(
+                "GET",
+                f"/providers/{provider}/availability"
+                f"?start_date={d(start)}&end_date={d(end)}",
+                token=user_a,
+            )
+            if not isinstance(rows, list):
+                return None
+            for row in rows:
+                if row["vehicle_class_id"] == klass:
+                    return row["free_count"]
+            return None
+
+        s.check("availability over a clear range", 200, "GET",
+                f"/providers/{provider}/availability"
+                f"?start_date={d(90)}&end_date={d(91)}", token=user_a)
+        clear = free_count(90, 91)
+        # A window over that range must cost the class exactly one car, and a
+        # window ending the day before must cost it none. Compared against the
+        # count just measured rather than against a hardcoded number, so the
+        # check survives ticket 47 rebuilding the fixture with a different fleet.
+        _, inside = s.call("POST", f"/vehicles/{vehicle}/blackout_windows",
+                           {"start_date": d(90), "end_date": d(91)}, token=admin)
+        s.check("a blacked-out car leaves availability", 200, "GET",
+                f"/providers/{provider}/availability"
+                f"?start_date={d(90)}&end_date={d(91)}", token=user_a)
+        reduced = free_count(90, 91)
+        if clear is not None and reduced == clear - 1:
+            s.passed += 1
+            print(f"  pass  availability drops by exactly one  [{clear} -> {reduced}]")
+        else:
+            s.failed.append("availability drops by exactly one")
+            print(f"  FAIL  availability drops by exactly one  {clear} -> {reduced}")
+        # Cancelling restores it immediately: no caching anywhere in that path.
+        if isinstance(inside, dict):
+            s.check("cancel the window", 204, "DELETE",
+                    f"/blackout_windows/{inside['id']}", token=admin)
+        restored = free_count(90, 91)
+        if restored == clear:
+            s.passed += 1
+            print(f"  pass  cancelling restores availability  [{restored}]")
+        else:
+            s.failed.append("cancelling restores availability")
+            print(f"  FAIL  cancelling restores availability  {clear} -> {restored}")
+        # The boundary, both sides of it.
+        _, adjacent = s.call("POST", f"/vehicles/{vehicle}/blackout_windows",
+                             {"start_date": d(88), "end_date": d(89)}, token=admin)
+        if free_count(90, 91) == clear:
+            s.passed += 1
+            print("  pass  a window ending the day before costs nothing  "
+                  f"[{clear}]")
+        else:
+            s.failed.append("a window ending the day before costs nothing")
+            print("  FAIL  a window ending the day before costs nothing  "
+                  f"{clear} -> {free_count(90, 91)}")
+        if isinstance(adjacent, dict):
+            s.check("cancel the adjacent window", 204, "DELETE",
+                    f"/blackout_windows/{adjacent['id']}", token=admin)
+
         # RESTRICT: the car cannot go while it still has a service history.
         s.check("a vehicle with a window cannot be removed", 409, "DELETE",
                 f"/vehicles/{vehicle}", token=admin)

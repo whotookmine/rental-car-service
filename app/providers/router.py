@@ -124,9 +124,31 @@ _AVAILABILITY_QUERY = text(
         ) AS day
     ),
     class_capacity AS (
+        -- Capacity for *this range*, not the class's whole fleet: a car in the
+        -- workshop for any part of the range is not a car you can rent for the
+        -- range, so it is not counted at all.
+        --
+        -- The blackout test belongs in the JOIN condition, never in a WHERE
+        -- clause. In a WHERE it would discard the class's row along with its last
+        -- remaining car, and a class whose every vehicle is blacked out would
+        -- vanish from the answer instead of reporting zero -- which is precisely
+        -- the "full versus does not exist" distinction this endpoint exists to
+        -- make. Here the LEFT JOIN keeps the class and COUNT(v.id) counts no
+        -- cars, giving 0.
+        --
+        -- Inclusive overlap on both sides, matching every other period in this
+        -- system: a window ending the day before the range starts does not
+        -- reduce capacity, and one starting on the final day of the range does.
         SELECT vc.id, vc.name, COUNT(v.id) AS cap
         FROM vehicle_classes vc
         LEFT JOIN vehicles v ON v.vehicle_class_id = vc.id
+            AND NOT EXISTS (
+                SELECT 1
+                FROM blackout_windows bw
+                WHERE bw.vehicle_id = v.id
+                  AND bw.start_date <= CAST(:end_date AS date)
+                  AND bw.end_date >= CAST(:start_date AS date)
+            )
         WHERE vc.provider_id = :provider_id
         GROUP BY vc.id, vc.name
     ),
@@ -161,9 +183,13 @@ _AVAILABILITY_QUERY = text(
     summary="Check vehicle class availability (authenticated)",
     description=(
         "Returns each vehicle class for the provider with the number of cars free "
-        "for the whole requested rental period. A class reporting zero is full; it "
-        "is never omitted. Retired providers are excluded. The same date rules as "
-        "booking apply: end on or after start, at most thirty days."
+        "for the whole requested rental period. Free means both unbooked and on "
+        "the road: a car with a maintenance blackout window overlapping any day "
+        "of the range is not counted, because it cannot be rented for the range. "
+        "A class reporting zero is full; it is never omitted, so a caller can "
+        "tell `free_count: 0` from a class that does not exist. Retired providers "
+        "are excluded. The same date rules as booking apply: end on or after "
+        "start, at most thirty days."
     ),
     responses={
         404: {"description": "Provider not found."},
