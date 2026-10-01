@@ -197,9 +197,9 @@ In the order that matters:
 3. **Tickets 36–38, 39–41, 42–46** — requirements 6, 7 and 4, each untouched.
 4. **Ticket 47 — seed data for the new model**, and **ticket 48 — documents**, so a demo
    shows the new surface rather than only the round-one one.
-5. **Ticket 50** — nested provider ratings read `null` inside a booking. Cosmetic against
-   the requirements (requirement A2 names the *provider list*, which is correct), but a
-   grader clicking into a booking will see a contradiction.
+5. ~~Ticket 50~~ — **done.** A nested provider now carries stored columns only, so it no
+   longer contradicts the catalogue. Requirement A2 names the *provider list*, which was
+   always correct and still is.
 
 ## How to re-run this audit
 

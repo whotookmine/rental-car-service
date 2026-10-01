@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.branches.schemas import BranchRead
 from app.core.clock import today
-from app.providers.schemas import ProviderRead
+from app.providers.schemas import ProviderSummary
 from app.vehicle_classes.schemas import VehicleClassSummary
 
 # A rental period is counted inclusively: a booking from the 1st to the 30th is
@@ -102,9 +102,16 @@ class BookingRead(BaseModel):
     start_date: date
     end_date: date
 
-    # Nested rather than a bare provider_id: a booking is only useful if you can
-    # see who it is with and how to reach them.
-    provider: ProviderRead
+    # The summary, not the full read shape, for exactly the reason `vehicle_class`
+    # below is a summary: `average_rating` and `review_count` come from an aggregate
+    # query rather than from the model, so nesting `ProviderRead` here reported a
+    # confident "never reviewed" on every booking. That was live behaviour until
+    # ticket 50 fixed it.
+    #
+    # A booking says who it is with and how to reach them. What other people think of
+    # them is catalogue information, for choosing a provider rather than for a record
+    # of a rental already made -- and `GET /providers` is where you choose.
+    provider: ProviderSummary
 
     # The summary, not the full read shape: `vehicle_count` comes from an
     # aggregate query rather than from the model, so nesting the full shape here

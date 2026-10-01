@@ -945,6 +945,38 @@ def main() -> int:
                 s.failed.append(f"{method} {path} is not a route")
                 print(f"  FAIL  {method} {path} answered {got}")
 
+        print("\n## nested resources carry stored columns only (ticket 50)")
+        # The defect was that a booking reported a confident "never reviewed" for a
+        # provider that had been reviewed. The fix removes the claim rather than
+        # correcting it, so the check is that the fields are absent -- a check for a
+        # correct value would pass again if someone reintroduced the default.
+        _, nested_check = s.call("GET", "/bookings", token=demo)
+        rows = nested_check if isinstance(nested_check, list) else []
+        clean = all(
+            "average_rating" not in row["provider"]
+            and "review_count" not in row["provider"]
+            and "vehicle_count" not in row["vehicle_class"]
+            for row in rows
+        )
+        if rows and clean:
+            s.passed += 1
+            print(f"  pass  no aggregate fields on nested blocks  [{len(rows)} bookings]")
+        else:
+            s.failed.append("no aggregate fields on nested blocks")
+            print(f"  FAIL  no aggregate fields on nested blocks  {rows[:1]}")
+        # And the standalone shape must still carry them, or the fix went too far.
+        _, catalogue = s.call("GET", "/providers", token=demo)
+        carried = all(
+            "average_rating" in p and "review_count" in p
+            for p in (catalogue if isinstance(catalogue, list) else [])
+        )
+        if carried:
+            s.passed += 1
+            print("  pass  the provider catalogue still carries them")
+        else:
+            s.failed.append("the provider catalogue still carries them")
+            print(f"  FAIL  the provider catalogue still carries them  {catalogue}")
+
         print("\n## quotation")
         s.check("quote a rental", 200, "POST", f"/providers/{provider}/quotations",
                 booking(10, 12), token=user_a)
