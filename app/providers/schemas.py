@@ -65,7 +65,25 @@ class ProviderUpdate(BaseModel):
         return _validate_telephone(value)
 
 
-class ProviderRead(BaseModel):
+class ProviderSummary(BaseModel):
+    """A provider as it appears *inside* another resource, such as a booking.
+
+    Deliberately carries **no** `average_rating` or `review_count`. Those are not
+    columns; they come from an aggregate query that only the provider routes run, so
+    a shape validated straight from a `Provider` object finds no such attributes and
+    falls back to the defaults -- reporting a confident `null` and `0` for a provider
+    with a four-star average.
+
+    That is not hypothetical: it was the live behaviour of every booking response
+    until ticket 50. A field that is sometimes a lie is worse than an absent one, so
+    the fields are gone from the nested shape rather than being filled in wherever a
+    booking is built.
+
+    Everything here is a stored column, which is what makes it safe to nest anywhere.
+    `is_retired` is included and useful: you may well have booked with someone who has
+    since stopped trading.
+    """
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -73,6 +91,15 @@ class ProviderRead(BaseModel):
     address: str
     telephone: str
     is_retired: bool
+
+
+class ProviderRead(ProviderSummary):
+    """A provider as its own resource, with its ratings.
+
+    Only ever built by the provider routes, which run the aggregate that fills these
+    in. Nesting this shape elsewhere is the defect ticket 50 fixed -- nest
+    `ProviderSummary` instead.
+    """
 
     # Computed at read time by aggregation; never stored. None means no reviews yet,
     # which is distinct from a zero average that would imply the provider is terrible.

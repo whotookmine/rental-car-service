@@ -516,6 +516,34 @@ domain rule and has no business day.
   cost of this choice. It is accepted knowingly: the alternative silently loses the ability
   to record facts.
 
+### What a nested resource carries
+
+A resource that appears **inside** another — the provider and vehicle class in a booking, the
+branches — carries **only stored columns**. Never a field computed by aggregation.
+
+This is a rule rather than a style, and it was paid for. `average_rating` and `review_count`
+are not columns; they come from an aggregate the provider routes run. `BookingRead` nested the
+full `ProviderRead`, so validating it from a `Provider` object found no such attributes and
+fell back to the field defaults — and every booking reported a confident `null` and `0` for a
+provider with a four-star average. Same provider, same request second, two different answers.
+
+Fixed in ticket 50 by **removing the fields from the nested shape** rather than filling them
+in wherever a booking is built. Two reasons:
+
+- A field that is sometimes a lie is worse than an absent one. Populating the aggregate in
+  every route that returns a booking leaves the same trap set for the next person who nests
+  something, and the booking *list* route would run it per row.
+- A booking says who it is with and how to reach them. What other people think of them is
+  catalogue information — for choosing a provider, not for the record of a rental already
+  made — and `GET /providers` is where you choose.
+
+So there are two shapes per resource where the difference matters: `ProviderSummary` and
+`ProviderRead`, `VehicleClassSummary` and `VehicleClassRead`. The summary is what nests. The
+full shape is only ever built by the routes that run the aggregate.
+
+**If you nest a resource, nest its summary.** If it has no summary and carries a computed
+field, write one.
+
 ### Authorization
 
 - Users and admins share the same routes. Scope widens by role: `GET /bookings` returns
@@ -815,6 +843,7 @@ the error shape.
 | Marking a notification read | 200, the notification |
 | Marking an already-read notification read again | 200, `read_at` unchanged |
 | Another user's notification, or an admin reaching for one | 404 |
+| A provider nested in a booking | stored columns only; no `average_rating`, no `review_count` |
 | Any attempt to create a notification through the API | 404 or 405 — no such route exists |
 | Joining a waitlist for a class that is not full | 409, naming how many cars are free |
 | Joining a queue you are already in | 409 |
