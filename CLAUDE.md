@@ -110,6 +110,9 @@ rejected password until a handler was added to redact it.
   malformed input; 404 — not 403 — when a user reaches for another user's booking, so that
   identifiers cannot be enumerated. 403 is correct for admin-only routes, which hide
   nothing. The full table is in `docs/SPEC.md`.
+- **Every request schema sets `extra="forbid"`, and every id it accepts is bounded
+  `Field(ge=1, le=2147483647)`.** Both have been live defects: a silently discarded field
+  the caller thought they had set, and an over-large id reaching PostgreSQL as a 500.
 - **Identity comes from the access token only.** Never from a request body, a query
   parameter, or a header the client chooses the meaning of.
 - One rule, one home. A rule enforced in two places will drift — as the password rule did,

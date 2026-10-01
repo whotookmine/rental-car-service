@@ -212,6 +212,11 @@ No rule may call `date.today()` directly.
   your own bookings, or all of them for an admin. The same widening applies to a booking
   addressed by identifier — fetching, re-dating and deleting all resolve through one
   lookup, so a registered user reaches only their own and an admin reaches any.
+- Every request schema sets `extra="forbid"` and every id field it accepts is bounded
+  `1..2147483647`. These are not stylistic: without the first, a field the caller believes
+  they set is silently thrown away, and without the second an over-large id reaches
+  PostgreSQL and raises `NumericValueOutOfRange`, which surfaces as a 500. Response shapes
+  need neither, since nothing untrusted is validated through them.
 - Acting on a booking you do not own returns `404`, not `403`, so that booking ids
   cannot be enumerated. The answer is identical whatever the verb and whatever else is
   wrong with the request, so ordering cannot be used to probe either.
@@ -396,7 +401,7 @@ the error shape.
 | Sending `provider_id` when re-dating a booking | 422 — refused, never silently ignored |
 | A registered user on an admin-only provider route | 403, whether or not the provider exists |
 | Re-dating a reviewed booking so it would not yet have ended | 409, reported ahead of the cap |
-| A path id larger than an integer primary key can hold | 422 |
+| A path **or body** id larger than an integer primary key can hold | 422 |
 | Booking with no vehicle class, or one outside integer range | 422 |
 | Booking a vehicle class that does not exist | 422 (a body value, not the path) |
 | Booking a vehicle class belonging to a different provider | 409 |
