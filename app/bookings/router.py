@@ -24,7 +24,7 @@ from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
-from app.waitlist.rules import offer_released_capacity
+from app.waitlist.rules import settle_queue
 
 router = APIRouter(tags=["bookings"])
 
@@ -276,7 +276,11 @@ def delete_booking(
     # here would leave a window where the car is free and nobody has been told.
     db.flush()
 
-    offer_released_capacity(db, vehicle_class_id)
+    # Settles rather than offering once: a cancellation is also a fine moment to
+    # notice that an earlier claim lapsed, and freeing one car may let two offers be
+    # made if another claim expired meanwhile. `settle_queue` offers exactly as many
+    # times as there is room for and then stops.
+    settle_queue(db, vehicle_class_id)
 
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

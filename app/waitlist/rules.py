@@ -234,6 +234,60 @@ def offer_released_capacity(
     return None
 
 
+def settle_queue(db: Session, vehicle_class_id: int) -> list[WaitlistEntry]:
+    """Bring one queue up to date, offering whatever is free to whoever is next.
+
+    **This is the whole of the pass-on, and it is almost entirely absence of code.**
+    An expired claim stops occupying a car the moment it expires, because occupancy
+    asks "is this claim live" rather than reading a stored flag. So capacity
+    reappears on its own, and offering it to the next person is the same operation
+    as offering capacity released by a cancellation. A declined claim behaves
+    identically, which is why the requirement's "a declined claim passes on the same
+    way" needed nothing written for it.
+
+    The expired holder **loses their place** rather than going to the back or the
+    front: their `offered_at` is already set, so they can never be a candidate again.
+    That too is absence of code rather than a rule.
+
+    Offers in a loop, because more than one claim can have lapsed since anyone
+    looked. Each pass marks one entry, so the loop shortens every time and ends when
+    nobody left can use what is free -- at which point the capacity is simply
+    available to anyone, which is what the requirement asks for. Each offer re-reads
+    occupancy, so the person offered a car immediately occupies it and the next pass
+    sees the class full again: exactly one offer per free car, never two for one.
+
+    **Lazily, because there is no scheduler.** Nothing runs on a timer in this
+    project. A queue nobody touches for a week is not wrong in the meantime -- no
+    claim is honoured past its expiry, because liveness is computed -- it is merely
+    unsettled, and the first read or write settles it.
+
+    **The caller must hold the vehicle class row lock.** Without it two simultaneous
+    readers would both see the same lapsed claim, both find the same next person, and
+    both offer them the car; or worse, offer the same car to two different people.
+    """
+    offered: list[WaitlistEntry] = []
+    while True:
+        entry = offer_released_capacity(db, vehicle_class_id)
+        if entry is None:
+            return offered
+        offered.append(entry)
+
+
+def classes_awaiting_settlement(db: Session, user_id: int) -> list[int]:
+    """Which vehicle classes this user's queue entries belong to.
+
+    Used to settle the queues a caller is actually in before reporting their places,
+    so that what they are told is current rather than merely stored.
+    """
+    return list(
+        db.scalars(
+            select(WaitlistEntry.vehicle_class_id)
+            .where(WaitlistEntry.user_id == user_id)
+            .distinct()
+        ).all()
+    )
+
+
 def ensure_class_is_full(
     db: Session,
     vehicle_class: VehicleClass,

@@ -16,8 +16,8 @@ database.
 ## Verdict in one line
 
 **Round one is complete and conforming, except the Postman collection** (ticket 22 — a
-named deliverable, not a nicety). Of round two, **requirement 7 is complete**; requirement 5
-is built apart from its relocation fee; requirements 4 and 6 have no surface yet.
+named deliverable, not a nicety). Of round two, **requirements 4 and 7 are complete**;
+requirement 5 is built apart from its relocation fee; requirement 6 has no surface yet.
 
 ---
 
@@ -165,7 +165,7 @@ in the demo script and the Postman collection.
 | 4a | Notify waitlisted users | ✅ built | Ticket 42 built the records and read surface; ticket 45 made the waitlist write them. Verified: the holder of a new claim receives a `waitlist_offer` notification naming the class, dates and deadline, and the person behind them receives nothing |
 | 4b | Strict FIFO release on cancellation | ✅ built | Ticket 44. Verified: three queue, one cancellation reaches only the front; two cancellations reach the first then the second; an entry the release cannot use is skipped and keeps its place; two simultaneous cancellations reach two different people |
 | 4c | Time-limited exclusive claim window | ✅ built | Ticket 45. A live claim occupies a car exactly as a booking does, so the class reads as full to everyone else; the holder converts it despite that. Window is `CLAIM_WINDOW_MINUTES` (default 60), verified configurable. Expiry judged lazily, with no scheduler |
-| 4d | Expiry passes the claim to the next in the queue | ❌ not built | Ticket 46 |
+| 4d | Expiry passes the claim to the next in the queue | ✅ built | Ticket 46. Verified end to end: three queue, the first lets the claim expire, the second declines, the third is offered it and books it. Lazy — nothing is offered on until the queue is next touched, proved with a week-old lapse. Two simultaneous reads of a stale queue leave exactly one live claim |
 | | | | *No waitlist route and no waitlist table: `/waitlist` and `/providers/1/waitlist` answer `404`. `/notifications` now exists and works, but has nothing to report* |
 | **5** | One-way rentals, drop-off differs from pickup | ✅ built | `dropoff_branch_id` on `POST /providers/{id}/bookings` (tickets 31, 32). Verified: enabled direction 1→2 → `201` |
 | 5a | **Blocked** unless the provider enabled one-way service between those branches | ✅ built | Verified: the unenabled reverse direction 2→1 → `409 "One-way rental from 'Don Mueang Airport' to 'Siam' has not been enabled by this provider."` Enablement is directional on purpose |
@@ -187,7 +187,8 @@ delivery or blackouts.
 
 In the order that matters:
 
-0. ~~Ticket 41~~ — **done. Requirement 7 is now complete in all three clauses.**
+0. ~~Tickets 41, 46~~ — **done. Requirements 4 and 7 are complete.** What remains of round
+   two is requirement 5's fee (ticket 35) and requirement 6 entirely (36–38), all Garfield's.
 1. **Ticket 22 — Postman collection and README.** The only *named* deliverable in the
    non-functional requirements, and the only thing in round one that is missing. Owner
    Garfield. Ticket 49 then extends the collection to the round-two surface.

@@ -346,6 +346,35 @@ domain rule and has no business day.
   holds an owner row while reaching for a class row. If a future ticket adds one, this is the
   route to revisit.
 
+### Passing a claim on
+
+- **An expired or declined claim passes to the next entry whose range the capacity satisfies,
+  and that person is notified.** Both cases go through one function, `settle_queue`, which is
+  the same operation as offering capacity released by a cancellation — because an expired claim
+  stops occupying a car the moment it expires, so capacity reappears on its own.
+- **The expired holder loses their place.** They do not go to the back and they do not return
+  to the front: their `offered_at` is set, so they can never be a candidate again. Like most of
+  this feature, that is the absence of code rather than a rule.
+- **Settling is lazy, and reads do it.** `GET /waitlist_entries` settles the queues the caller
+  is in before reporting their places, as do joining, converting and declining, and deleting a
+  booking. A GET with an effect is surprising enough to say out loud: the alternative is a
+  background job, which this project does not have. Nothing is ever *wrong* in the meantime — a
+  claim past its expiry is never honoured, because liveness is computed — the capacity it was
+  holding has merely not been offered on yet. Verified with a week-old lapsed claim: nothing
+  had been offered before anyone looked, and the first read settled it correctly.
+- Settling offers **in a loop**, because more than one claim can have lapsed since anyone
+  looked. Each offer re-reads occupancy, so the person offered a car immediately occupies it
+  and the next pass sees the class full again: exactly one offer per free car, never two for
+  one.
+- **When nobody left can use what is free, the queue is untouched and the capacity is simply
+  available to anyone.** Verified: the only waiter's claim lapsed, a read settled nothing, and
+  an outsider booked the car.
+- Settling runs under the vehicle class row lock, for the reason everything else here does.
+  Verified by firing two reads of the same stale queue at the same instant: exactly one live
+  claim existed afterwards, held by the person next in line.
+- Only the queues the caller is actually in are settled on a read. Settling every queue in the
+  system on every read would turn one person's list into a scan of the whole table.
+
 ### Admin scope on the waitlist
 
 - **Admins do not join waitlists**, for the reason they do not hold bookings: a place in a
@@ -805,6 +834,8 @@ the error shape.
 | Declining a live claim | 200, `state: declined`, capacity free immediately |
 | Declining twice | 409 |
 | Another user's claim, or an admin reaching for one | 404 |
+| Reading your waitlist entries when a claim ahead of you has lapsed | 200, and you now hold the claim |
+| A lapsed claim when nobody else can use the capacity | the car becomes bookable by anyone |
 
 ## Seeding and testing
 
