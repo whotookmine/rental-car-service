@@ -23,6 +23,8 @@ from app.core.clock import today
 from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
+from app.vehicle_classes.models import VehicleClass
+from app.waitlist.rules import offer_released_capacity
 
 router = APIRouter(tags=["bookings"])
 
@@ -241,8 +243,9 @@ def update_booking(
     description=(
         "Removes the booking outright. There is no cancelled state and no soft "
         "delete: the row is gone, and the slot it occupied is free immediately. "
-        "Answers 404 for a booking belonging to another user, exactly as for one "
-        "that does not exist."
+        "If anyone is waiting for that vehicle class, the capacity this releases is "
+        "offered to whoever has waited longest and can use it. Answers 404 for a "
+        "booking belonging to another user, exactly as for one that does not exist."
     ),
     responses={404: {"description": "Booking not found."}},
 )
@@ -250,6 +253,30 @@ def delete_booking(
     booking: Booking = Depends(get_visible_booking_or_404),
     db: Session = Depends(get_db),
 ) -> Response:
+    # The class row is locked before the delete, not after, and for the whole of
+    # what follows. Deleting and then offering is two steps over one piece of
+    # state: without the lock, two simultaneous cancellations would both read the
+    # same queue, both find the same person at the front, and both offer them the
+    # capacity -- one car promised twice, and the second person in the queue never
+    # hearing anything.
+    #
+    # Lock order is owner, then vehicle class, then vehicle. No owner lock is taken
+    # here: deleting only ever lowers the owner's active count, so there is no
+    # count-then-write race to protect.
+    vehicle_class_id = booking.vehicle_class_id
+    db.execute(
+        select(VehicleClass.id)
+        .where(VehicleClass.id == vehicle_class_id)
+        .with_for_update()
+    )
+
     db.delete(booking)
+    # Flushed, not committed: the offer below has to see the booking gone when it
+    # measures what is free, and both have to land together or not at all. A commit
+    # here would leave a window where the car is free and nobody has been told.
+    db.flush()
+
+    offer_released_capacity(db, vehicle_class_id)
+
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

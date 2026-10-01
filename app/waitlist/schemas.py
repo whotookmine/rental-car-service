@@ -56,3 +56,7 @@ class WaitlistEntryRead(BaseModel):
     # the holder's own record, but no release will ever be offered to it, because
     # the dates it wanted are gone.
     is_active: bool
+
+    # Null until released capacity has been offered to this entry. Once set, the
+    # entry is out of contention for the next release.
+    offered_at: datetime | None = None

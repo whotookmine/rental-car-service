@@ -81,6 +81,18 @@ class WaitlistEntry(Base):
         DateTime(timezone=True), nullable=False
     )
 
+    # Set when released capacity has been offered to this entry, null until then.
+    # An offered entry is out of contention for the next release: that is what makes
+    # two cancellations in quick succession reach the first and second person in the
+    # queue rather than both reaching the first.
+    #
+    # An instant rather than a flag, for the reason `read_at` on a notification is:
+    # it answers strictly more, and "when was this offered" is the question anyone
+    # investigating a queue actually asks. Ticket 45 gives the offer an expiry.
+    offered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+
     vehicle_class: Mapped[VehicleClass] = relationship(lazy="joined")
 
     def __repr__(self) -> str:  # pragma: no cover
