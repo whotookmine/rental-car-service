@@ -8,6 +8,7 @@ afterwards. Backend only; there is no frontend.
 | File | What it is | Standing |
 |---|---|---|
 | `CONTEXT.md` | The glossary. Booking, Rental Period, Active Booking, Provider, Retired Provider, Review, Registered User, Admin. | Use these words in code, routes, and responses. The `_Avoid_` lists are words that must not appear. |
+| `docs/REQUIREMENTS-TRACE.md` | The requirements **as given**, verbatim, mapped clause by clause to the route that satisfies it and the check that proved it. Names what is still missing. | The brief. This is what the work is graded against. Re-audit it whenever a clause changes state. |
 | `docs/SPEC.md` | The agreed ruleset: entities, date semantics, validation, status codes. | Binding. If the code and this disagree, one of them is a bug. |
 | `docs/adr/` | Decisions that are expensive to reverse, each with its reasoning. | Binding. Do not quietly work around an ADR. |
 | `.scratch/rental-car-service/spec.md` | The same design in problem-and-user-story form. | Context, not law. |
@@ -46,6 +47,10 @@ slice that is demoable on its own. Every ticket file carries:
    has been the single most repeated failure on this project: the code was right, the
    ticket Notes explained it, and the binding document was left saying something untrue.
    Notes are not a substitute — `docs/SPEC.md` is what the next person reads.
+   **If the ticket closes a clause of the original brief, update
+   `docs/REQUIREMENTS-TRACE.md` in the same commit too** — move the row from missing to
+   verified, and paste the output that proves it. That file is what the work is graded
+   against, and a row that still says "not built" about finished work costs marks.
 7. **Merge to `main` and push.** Tell your teammate when a ticket they are blocked on lands.
 
 ### Scope
