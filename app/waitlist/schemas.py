@@ -60,3 +60,30 @@ class WaitlistEntryRead(BaseModel):
     # Null until released capacity has been offered to this entry. Once set, the
     # entry is out of contention for the next release.
     offered_at: datetime | None = None
+
+    # When the exclusive hold ends. Set with `offered_at` and never apart from it.
+    claim_expires_at: datetime | None = None
+    converted_at: datetime | None = None
+    converted_booking_id: int | None = None
+    declined_at: datetime | None = None
+
+    # Derived from those timestamps on every read, never stored: `waiting`,
+    # `claimed`, `expired`, `converted` or `declined`. A stored state and the
+    # timestamps behind it are two facts that can disagree, and the disagreement is
+    # always found later than it was caused.
+    state: str
+
+
+class ClaimConvert(BaseModel):
+    """Turning a claim into a booking.
+
+    Carries only what the booking needs and the claim does not already know. The
+    class and the dates come from the waitlist entry, so they cannot be changed on
+    the way through -- claiming a held car for different dates would not be taking
+    the offer but making a new request, and the car being held is for *those* days.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pickup_branch_id: int = Field(ge=1, le=2147483647)
+    dropoff_branch_id: int | None = Field(default=None, ge=1, le=2147483647)

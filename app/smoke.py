@@ -800,6 +800,46 @@ def main() -> int:
             else:
                 s.failed.append("nothing was booked automatically")
                 print(f"  FAIL  nothing was booked automatically  {q2_bookings}")
+            # Ticket 45: the offer is a claim that holds the car against everyone
+            # else, and only the holder can take it.
+            if isinstance(q2_rows, list) and q2_rows:
+                held = q2_rows[0]
+                if held.get("state") == "claimed" and held.get("claim_expires_at"):
+                    s.passed += 1
+                    print("  pass  the offer is a claim with an expiry  "
+                          f"[{held['state']}]")
+                else:
+                    s.failed.append("the offer is a claim with an expiry")
+                    print(f"  FAIL  the offer is a claim with an expiry  {held}")
+                # The holder was told, through the notification records.
+                _, held_notes = s.call("GET", "/notifications", token=q2)
+                offer_notes = [n for n in held_notes
+                               if isinstance(n, dict)
+                               and n.get("kind") == "waitlist_offer"]
+                if offer_notes:
+                    s.passed += 1
+                    print("  pass  the holder was notified  [waitlist_offer]")
+                else:
+                    s.failed.append("the holder was notified")
+                    print(f"  FAIL  the holder was notified  {held_notes}")
+                # Held against everyone else, even though a car is free.
+                s.check("an outsider cannot book the held car", 409, "POST",
+                        f"/providers/{provider}/bookings",
+                        {**q_body, "pickup_branch_id": branch}, token=user_a)
+                # But the holder can.
+                taken = s.check("the holder converts the claim", 201, "POST",
+                                f"/waitlist_entries/{held['id']}/claim",
+                                {"pickup_branch_id": branch}, token=q2)
+                if isinstance(taken, dict) and "id" in taken:
+                    s.booked.append(taken["id"])
+                s.check("the same claim cannot be taken twice", 409, "POST",
+                        f"/waitlist_entries/{held['id']}/claim",
+                        {"pickup_branch_id": branch}, token=q2)
+                s.check("declining a spent claim", 409, "DELETE",
+                        f"/waitlist_entries/{held['id']}/claim", token=q2)
+                s.check("another user reaching for the claim", 404, "POST",
+                        f"/waitlist_entries/{held['id']}/claim",
+                        {"pickup_branch_id": branch}, token=user_a)
             s.check("the second leaves too", 204, "DELETE",
                     f"/waitlist_entries/{e2['id']}", token=q2)
         s.check("an over-large entry id", 422, "DELETE",

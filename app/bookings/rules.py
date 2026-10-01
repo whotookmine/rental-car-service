@@ -20,7 +20,7 @@ from app.auth.models import User
 from app.blackout_windows.models import BlackoutWindow
 from app.bookings.models import Booking
 from app.branches.models import Branch
-from app.core.clock import today
+from app.core.clock import now, today
 from app.one_way_routes.models import OneWayRoute
 from app.reviews.models import Review
 from app.providers.models import Provider
@@ -37,22 +37,55 @@ MAX_ACTIVE_BOOKINGS = 3
 # `generate_series` walks the requested days one at a time. That is the simplest
 # thing that is obviously correct, and the series is bounded: a rental period is
 # at most thirty days by the schema rule, so this is at most thirty rows.
-_PEAK_BOOKINGS_ON_ANY_DAY = text(
+# What the busiest single day of a requested period costs, measured per day rather
+# than per booking. Two bookings that share one day both consume a car that day,
+# even if they differ on every other day, so a whole-period count would let a class
+# be over-booked by bookings that merely fail to nest.
+#
+# **Two things occupy a car, not one.** A booking does, obviously. A live waitlist
+# claim does too: ticket 45 holds released capacity for the person it was offered to,
+# so while that claim stands the car is not available to anyone else even though it
+# is physically free. Counting them together in one per-day figure is what makes
+# "full" mean the same thing to a renter, to availability, and to the queue.
+#
+# A claim is live when it has been offered, has not been converted or declined, and
+# has not passed its expiry. Expiry is judged against the instant passed in rather
+# than `now()` inside the SQL, so that every row in one request is measured against
+# one consistent moment -- a query that read the clock per row could count a claim as
+# live and dead in the same answer.
+#
+# `generate_series` walks the requested days one at a time. That is the simplest
+# thing that is obviously correct, and the series is bounded: a rental period is at
+# most thirty days by the schema rule, so this is at most thirty rows.
+_PEAK_OCCUPANCY_ON_ANY_DAY = text(
     """
     SELECT COALESCE(MAX(taken), 0) FROM (
-        SELECT COUNT(b.id) AS taken
+        SELECT (
+            (SELECT COUNT(*)
+               FROM bookings b
+              WHERE b.vehicle_class_id = :vehicle_class_id
+                AND b.start_date <= d.day
+                AND b.end_date >= d.day
+                AND (CAST(:excluding_booking_id AS integer) IS NULL
+                     OR b.id <> CAST(:excluding_booking_id AS integer)))
+            +
+            (SELECT COUNT(*)
+               FROM waitlist_entries w
+              WHERE w.vehicle_class_id = :vehicle_class_id
+                AND w.start_date <= d.day
+                AND w.end_date >= d.day
+                AND w.offered_at IS NOT NULL
+                AND w.converted_at IS NULL
+                AND w.declined_at IS NULL
+                AND w.claim_expires_at > CAST(:at AS timestamptz)
+                AND (CAST(:excluding_claim_entry_id AS integer) IS NULL
+                     OR w.id <> CAST(:excluding_claim_entry_id AS integer)))
+        ) AS taken
         FROM generate_series(
                  CAST(:start_date AS date),
                  CAST(:end_date AS date),
                  CAST('1 day' AS interval)
              ) AS d(day)
-        LEFT JOIN bookings b
-               ON b.vehicle_class_id = :vehicle_class_id
-              AND b.start_date <= d.day
-              AND b.end_date >= d.day
-              AND (CAST(:excluding_booking_id AS integer) IS NULL
-                   OR b.id <> CAST(:excluding_booking_id AS integer))
-        GROUP BY d.day
     ) per_day
     """
 )
@@ -112,12 +145,14 @@ class ClassRoom(NamedTuple):
     total: int
     blacked_out: int
     available: int
-    peak_bookings: int
+    # Bookings *and* live claims. Named occupancy rather than bookings since ticket
+    # 45, because a claim takes a car out of circulation just as a booking does.
+    peak_occupancy: int
 
     @property
     def is_full(self) -> bool:
         """True when nothing more can be booked over the period."""
-        return self.peak_bookings >= self.available
+        return self.peak_occupancy >= self.available
 
 
 def measure_room(
@@ -127,12 +162,18 @@ def measure_room(
     end_date: date,
     *,
     excluding_booking_id: int | None = None,
+    excluding_claim_entry_id: int | None = None,
 ) -> ClassRoom:
-    """Count vehicles, maintenance and bookings over one period.
+    """Count vehicles, maintenance, bookings and live claims over one period.
 
     Does **not** lock. A caller that is about to write on the strength of the
     answer must take the vehicle class row lock first -- see
     `ensure_class_has_room` -- and a caller that is only reporting need not.
+
+    `excluding_claim_entry_id` leaves one waitlist entry's own claim out of the
+    count. Converting a claim needs it: the holder must be able to book the very
+    car their claim is holding, which is the whole point of an exclusive claim, and
+    without this they would be refused by their own reservation.
     """
     total = count_vehicles_in_class(db, vehicle_class_id)
     blacked_out = count_blacked_out_vehicles(
@@ -140,12 +181,15 @@ def measure_room(
     )
     peak = (
         db.scalar(
-            _PEAK_BOOKINGS_ON_ANY_DAY,
+            _PEAK_OCCUPANCY_ON_ANY_DAY,
             {
                 "start_date": start_date,
                 "end_date": end_date,
                 "vehicle_class_id": vehicle_class_id,
                 "excluding_booking_id": excluding_booking_id,
+                "excluding_claim_entry_id": excluding_claim_entry_id,
+                # One instant for the whole measurement, from the one clock helper.
+                "at": now(),
             },
         )
         or 0
@@ -156,7 +200,7 @@ def measure_room(
         total=total,
         blacked_out=blacked_out,
         available=max(0, total - blacked_out),
-        peak_bookings=peak,
+        peak_occupancy=peak,
     )
 
 
@@ -230,6 +274,7 @@ def ensure_class_has_room(
     end_date: date,
     *,
     excluding_booking_id: int | None = None,
+    excluding_claim_entry_id: int | None = None,
 ) -> None:
     """Raise 409 unless the class has a car that is both free and on the road.
 
@@ -276,6 +321,7 @@ def ensure_class_has_room(
         start_date,
         end_date,
         excluding_booking_id=excluding_booking_id,
+        excluding_claim_entry_id=excluding_claim_entry_id,
     )
     if room.is_full:
         raise _refusal(

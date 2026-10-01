@@ -42,6 +42,18 @@ class Settings(BaseSettings):
     # ISO 4217 currency code for all monetary amounts in the service.
     currency: str = Field(default="THB", alias="CURRENCY")
 
+    # How long a waitlist claim is held exclusively for the person it was offered
+    # to. Configuration rather than a constant because the right value is a
+    # business decision -- long enough for someone to notice an offer, short enough
+    # that a car is not held hostage -- and because a demo needs to watch one
+    # expire. Set it to 1 to show expiry in a few seconds of waiting.
+    #
+    # `gt=0`: a zero-minute window would expire in the same instant it was created,
+    # so the offer could never be taken and the queue would drain itself silently.
+    claim_window_minutes: int = Field(
+        default=60, alias="CLAIM_WINDOW_MINUTES", gt=0
+    )
+
     # Environment name: local | development | production.
     env: str = Field(default="local", alias="ENV")
 

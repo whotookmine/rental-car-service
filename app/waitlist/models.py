@@ -93,6 +93,46 @@ class WaitlistEntry(Base):
         DateTime(timezone=True), nullable=True, default=None
     )
 
+    # When the offer stops being exclusive. Set alongside `offered_at` from the
+    # configured claim window, so the two are always written together -- an offer
+    # without a deadline would hold a car forever.
+    claim_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+
+    # Set when the holder turns the claim into a booking. The claim is then spent:
+    # it cannot be taken again, and it no longer holds anything, because the booking
+    # it became does.
+    converted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+
+    # The booking the claim became. `SET NULL` rather than `CASCADE`: if that
+    # booking is later deleted, the record that this entry was once converted must
+    # survive -- otherwise the entry would look like it is still waiting, and the
+    # queue would offer it capacity a second time. `converted_at` is what the rules
+    # read; this is for anyone tracing where a booking came from.
+    # The constraint is named here as well as in the migration. Autogenerate emitted
+    # an unnamed one, whose downgrade -- `drop_constraint(None, ...)` -- cannot work,
+    # because PostgreSQL has no way to drop a constraint you cannot name. Naming it
+    # in the model keeps a future autogenerate from reintroducing the same problem.
+    converted_booking_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "bookings.id",
+            ondelete="SET NULL",
+            name="fk_waitlist_entries_converted_booking_id",
+        ),
+        nullable=True,
+        default=None,
+    )
+
+    # Set when the holder gives the claim up early. Distinct from expiry on purpose:
+    # declining is a decision and releases the car immediately, while expiry is the
+    # absence of one. Both end the claim, and ticket 46 passes both on the same way.
+    declined_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+
     vehicle_class: Mapped[VehicleClass] = relationship(lazy="joined")
 
     def __repr__(self) -> str:  # pragma: no cover

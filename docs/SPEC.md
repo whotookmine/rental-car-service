@@ -298,6 +298,56 @@ domain rule and has no business day.
   both offer them the capacity — one car promised twice and the second person never hearing
   anything. Verified by firing two cancellations at the same instant: the two releases reach
   two different people.
+### Claims
+
+- **An offer is a claim: a car held for one person until a deadline.** `offered_at` and
+  `claim_expires_at` are written together and never apart, because an offer without a
+  deadline would hold a car forever.
+- **The window is configuration**: `CLAIM_WINDOW_MINUTES`, default **60**, must be greater
+  than zero. The right value is a business judgement — long enough to notice an offer, short
+  enough that a car is not held hostage — and a demo needs to watch one expire, so set it to
+  `1` when demonstrating. A zero-minute window is refused at startup: it would expire in the
+  instant it was created, so the offer could never be taken and the queue would drain itself
+  silently.
+- **A live claim occupies a car exactly as a booking does.** Both are counted in one per-day
+  occupancy figure, so while a claim stands the class reads as full to everyone else even
+  though a car is physically free, and a booking attempt is refused. The holder's own claim is
+  excluded when they convert it — otherwise they would be refused by the very reservation made
+  for them, which is the one thing an exclusive claim must never do.
+- **The holder is notified**, through the notification records of ticket 42. This is the first
+  thing in the service that writes one. `notify` flushes rather than commits, so the message
+  lands with the cancellation that caused it or not at all.
+- **Expiry is judged when the question is asked**, never by a background job — there is no
+  scheduler in this project. A claim that lapsed overnight is simply not live the next time
+  anyone reads or writes the queue, and the car it was holding is free again at that moment.
+  Verified by backdating an expiry and finding the state `expired` and the capacity released
+  with nothing having run in between.
+- **Claim state is derived, never stored**: `waiting`, `claimed`, `expired`, `converted` or
+  `declined`, computed from the timestamps on every read. A stored state and the timestamps
+  behind it are two facts that can disagree, and the disagreement is always found later than
+  it was caused. It is also what makes lazy expiry work at all.
+- **Converting consumes the claim.** `POST /waitlist_entries/{id}/claim` creates the booking
+  and sets `converted_at`; a second attempt answers 409. The class and dates come from the
+  entry, not the body: the car is held for *those* days, and claiming it for others would be a
+  new request rather than taking the offer.
+- **Every other booking rule still applies to a conversion**: the provider must not have
+  retired, the branches must be that provider's, an unenabled one-way direction is refused,
+  and the owner's three-active cap holds. A claim offers a car; it does not exempt anyone from
+  the rules about holding one.
+- **Declining releases the car immediately** rather than making everyone behind wait out the
+  expiry. `DELETE /waitlist_entries/{id}/claim`, 200 with `state: declined`. The entry stays
+  visible as a record of what happened but is out of the queue.
+- **Position counts only entries still in contention.** Converted, declined and expired
+  entries are not counted ahead of anyone: once an entry can never be offered anything again,
+  counting it would tell the person behind it they were further back than they are.
+- Lock order note: a conversion holds the vehicle class row and then takes the owner row
+  inside `ensure_room_for_another_booking`, which is the **reverse** of the order everywhere
+  else. It is safe only because that route takes no further locks afterwards and no other path
+  holds an owner row while reaching for a class row. If a future ticket adds one, this is the
+  route to revisit.
+
+### Admin scope on the waitlist
+
 - **Admins do not join waitlists**, for the reason they do not hold bookings: a place in a
   queue is a claim on inventory, and they manage rather than rent. Another user's entry
   answers 404, for an admin too — nothing in the requirement asks an admin to administer a
@@ -592,7 +642,13 @@ domain rule and has no business day.
 - `GET /waitlist_entries` — your own places, each with `position`, ordered by the range
   wanted then by when you joined. None gives `[]`.
 - `DELETE /waitlist_entries/{id}` — leave. 204, no body.
-- An entry carries `offered_at`: null until released capacity has been offered to it.
+- An entry carries `offered_at`, `claim_expires_at`, `converted_at`, `converted_booking_id`,
+  `declined_at`, and a derived `state`.
+- `POST /waitlist_entries/{id}/claim` — take the claim as a booking. 201 with the **booking**,
+  not the entry. Body carries only `pickup_branch_id` and optionally `dropoff_branch_id`.
+- `DELETE /waitlist_entries/{id}/claim` — decline it. 200 with the entry.
+- Both answer 409 when there is no live claim, naming which of the four states applies, and
+  404 for another user's entry — for an admin too.
 - There is no route that lists a whole queue, and no route that shows another person's place.
   Who else is waiting is not the caller's business; their own position is all they need, and
   publishing the queue would let anyone measure a provider's demand.
@@ -741,6 +797,14 @@ the error shape.
 | Leaving a waitlist | 204, no body |
 | Deleting a booking when someone is waiting who can use it | 204; the earliest such entry gains `offered_at` |
 | Deleting a booking when nobody waiting can use it | 204; every entry untouched |
+| Booking a class whose only free car is held by someone else's live claim | 409 "fully booked" |
+| Converting your own live claim | 201 with the booking, even though the class reads as full |
+| Converting a claim twice | 409 "a claim can only be taken once" |
+| Converting an expired claim | 409, judged at that moment with nothing having run |
+| Converting when nothing was offered | 409 "you are still in the queue" |
+| Declining a live claim | 200, `state: declined`, capacity free immediately |
+| Declining twice | 409 |
+| Another user's claim, or an admin reaching for one | 404 |
 
 ## Seeding and testing
 

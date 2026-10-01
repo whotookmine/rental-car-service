@@ -30,6 +30,10 @@ class NotificationKind(StrEnum):
 
     booking_confirmed = "booking_confirmed"
     booking_ended = "booking_ended"
+    # Released capacity has been offered to this person and is held for them until
+    # their claim expires. Added by ticket 45, which is the first thing in the
+    # service that actually writes a notification.
+    waitlist_offer = "waitlist_offer"
 
 
 class Notification(Base):
