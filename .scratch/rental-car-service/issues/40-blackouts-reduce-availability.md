@@ -7,7 +7,8 @@ must count only vehicles that are actually on the road for the whole requested r
 
 **Owner:** Time
 
-**Status:** done — verified against a running app and a real database, with one criterion deliberately left open (see Notes)
+**Status:** done — verified against a running app and a real database. One criterion was
+left open here deliberately and has since been closed by ticket 41 (see Notes).
 
 - [x] Availability excludes any vehicle whose blackout window overlaps even one day of the
       requested range
@@ -16,8 +17,8 @@ must count only vehicles that are actually on the road for the whole requested r
 - [x] A window that ends the day before the range starts does not reduce availability, and
       one that starts the day the range ends does — state the boundary explicitly
 - [x] Cancelling a window restores availability immediately
-- [ ] Availability and booking still agree: whatever availability reports, booking behaves
-      the same way — **NOT met, and cannot be met by this ticket. See Notes.**
+- [x] Availability and booking still agree: whatever availability reports, booking behaves
+      the same way — **closed by ticket 41**, which was left open here on purpose. See Notes.
 
 ## Notes
 
@@ -94,9 +95,19 @@ every Economy car blacked out over 2026-12-26..2026-12-27
 ```
 
 Recorded in `docs/SPEC.md` under both the availability rules and the maintenance rules, with
-that transcript, so the next reader finds the gap described rather than discovering it. **Do
-ticket 41 next**: a reported zero that still takes bookings is the kind of inconsistency a
-grader finds in a minute.
+that transcript, so the next reader found the gap described rather than discovering it.
+
+**Ticket 41 landed immediately afterwards and closed it**, so the box above is now ticked and
+the SPEC paragraph describing the gap has been replaced by one describing the agreement:
+
+```
+SUV over its own blackout                 free=0  booking=409
+Economy, 2 of 3 blacked out + 1 booked    free=0  booking=409
+Economy on a clear range                  free=3  booking=201
+```
+
+The history is kept here rather than erased, because "this criterion cannot be met by this
+ticket" is a judgement someone may want to check.
 
 ### What was deliberately left alone
 

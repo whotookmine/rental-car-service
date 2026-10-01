@@ -45,9 +45,11 @@ router = APIRouter(tags=["bookings"])
             "description": (
                 "The provider has retired and is no longer accepting bookings, "
                 "the user already holds the maximum active bookings, the vehicle "
-                "class or pickup branch belongs to a different provider, or every "
-                "vehicle in that class is taken for part of the requested rental "
-                "period."
+                "class or pickup branch belongs to a different provider, or the "
+                "class has no vehicle both free and on the road for the whole "
+                "requested period. That last refusal says which it is: taken by "
+                "other bookings, off the road for maintenance, or both, so the "
+                "caller knows whether waiting could help."
             )
         },
         422: {"description": "The vehicle class or pickup branch does not exist."},
@@ -172,8 +174,9 @@ def get_booking(
             "description": (
                 "The booking has been reviewed and the new dates would leave it "
                 "not yet ended, the owner already holds the maximum active "
-                "bookings, or the vehicle class is fully booked for the new "
-                "rental period."
+                "bookings, or the vehicle class has no vehicle both free and on "
+                "the road for the new rental period — including when a "
+                "maintenance window covers part of it."
             )
         },
     },
@@ -206,7 +209,10 @@ def update_booking(
 
     # Capacity for the new dates, measured against the booking's own class and
     # excluding the booking itself -- it is moving, not being added. Taken after
-    # the owner cap so that the lock order matches creation's.
+    # the owner cap so that the lock order matches creation's. Since ticket 41
+    # this also refuses dates where the class's cars are off the road for
+    # maintenance, and it applies to an admin exactly as to the owner: both reach
+    # this line through the same route.
     #
     # Unlike the owner cap this is checked whatever the new dates are, including
     # ones wholly in the past: a past-dated booking still occupied a car on those

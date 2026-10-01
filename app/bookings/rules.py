@@ -16,6 +16,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.auth.models import User
+from app.blackout_windows.models import BlackoutWindow
 from app.bookings.models import Booking
 from app.branches.models import Branch
 from app.core.clock import today
@@ -57,7 +58,7 @@ _PEAK_BOOKINGS_ON_ANY_DAY = text(
 
 
 def count_vehicles_in_class(db: Session, vehicle_class_id: int) -> int:
-    """How many cars sit in a class. This is its capacity."""
+    """How many cars sit in a class, whether or not they are on the road."""
     return (
         db.scalar(
             select(func.count())
@@ -68,6 +69,97 @@ def count_vehicles_in_class(db: Session, vehicle_class_id: int) -> int:
     )
 
 
+def count_blacked_out_vehicles(
+    db: Session, vehicle_class_id: int, start_date: date, end_date: date
+) -> int:
+    """How many of a class's cars are off the road for part of the period.
+
+    A car is out for the whole period if a blackout window covers even one day of
+    it: a car that must be handed back to the workshop midway through is not a car
+    you can rent for the period. That is the same rule availability applies, which
+    is what makes the two answers agree.
+
+    Inclusive overlap on both sides, so a window ending the day before the period
+    starts costs nothing, and one starting on the period's final day costs a car.
+    """
+    return (
+        db.scalar(
+            select(func.count(func.distinct(Vehicle.id)))
+            .select_from(Vehicle)
+            .join(BlackoutWindow, BlackoutWindow.vehicle_id == Vehicle.id)
+            .where(
+                Vehicle.vehicle_class_id == vehicle_class_id,
+                BlackoutWindow.start_date <= end_date,
+                BlackoutWindow.end_date >= start_date,
+            )
+        )
+        or 0
+    )
+
+
+def _refusal(
+    *,
+    name: str,
+    start_date: date,
+    end_date: date,
+    total: int,
+    blacked_out: int,
+    available: int,
+) -> HTTPException:
+    """The 409, worded so the caller knows whether waiting will help.
+
+    Three different situations hide behind "you cannot have this car", and the
+    remedy differs in each. Telling them apart is the whole point of this
+    function:
+
+    - **No cars at all.** Nothing to wait for and nothing to re-date to.
+    - **Every car off the road for maintenance.** No cancellation can help,
+      because the cars are not in anyone else's hands -- they are in the workshop.
+      Different dates might.
+    - **Fully booked.** Someone else is holding the car, so a cancellation does
+      free it, which is exactly what the waitlist in ticket 43 will queue for.
+
+    The mixed case says both, because the caller needs to know that part of the
+    shortfall will never be released however long they wait.
+    """
+    if total == 0:
+        detail = (
+            f"Vehicle class '{name}' cannot be booked between {start_date} and "
+            f"{end_date}: it has no vehicles."
+        )
+    elif available == 0:
+        # Every car in the class is in the workshop for part of the period.
+        fleet = (
+            "its only vehicle is"
+            if total == 1
+            else f"all {total} of its vehicles are"
+        )
+        detail = (
+            f"Vehicle class '{name}' cannot be booked between {start_date} and "
+            f"{end_date}: {fleet} off the road for maintenance for part of that "
+            "period. Waiting will not free one, because no other booking is "
+            "holding them; try different dates."
+        )
+    elif blacked_out:
+        # Partly maintenance, partly demand.
+        detail = (
+            f"Vehicle class '{name}' is fully booked between {start_date} and "
+            f"{end_date}. {blacked_out} of its {total} vehicles are off the road "
+            f"for maintenance for part of that period, and the {available} still "
+            "on the road are taken on at least one of those days."
+        )
+    else:
+        # The original ticket 26 wording, unchanged: no maintenance is involved,
+        # so the sentence a caller already knows should not move under them.
+        detail = f"Vehicle class '{name}' is fully booked between {start_date} and {end_date}. " + (
+            "Its only vehicle is taken on at least one of those days."
+            if total == 1
+            else f"All {total} of its vehicles are taken on at least one of those days."
+        )
+
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
 def ensure_class_has_room(
     db: Session,
     vehicle_class: VehicleClass,
@@ -76,22 +168,38 @@ def ensure_class_has_room(
     *,
     excluding_booking_id: int | None = None,
 ) -> None:
-    """Raise 409 if every car in the class is taken on any day of the period.
+    """Raise 409 unless the class has a car that is both free and on the road.
 
-    The lock comes first, on the vehicle class row, for exactly the reason the
-    active-booking cap locks the owner: counting and then inserting is a race,
-    and two requests can otherwise both see the last car free and both take it.
-    Locking the class serialises every booking that changes that class's
-    occupancy.
+    Capacity is counted three ways at once, because all three reduce it and a
+    caller hitting the limit needs to know which:
 
-    **Lock order matters.** Every path that takes both locks takes the owner
-    first and the class second. Taking them in opposite orders in two different
-    routes is how a deadlock is built, and PostgreSQL would resolve it by
-    killing one caller's transaction at random.
+        available = vehicles in the class - vehicles off the road for maintenance
+        refused when the busiest day of the period already has `available`
+        bookings on it
 
-    A class whose cars have since been sold can hold more bookings than it has
-    capacity for. Those bookings stand -- history is never destroyed to satisfy
-    a later rule -- and only new ones are refused.
+    So two vehicles with one blacked out and one already booked is a full class,
+    even though neither count alone reaches two. This is the same arithmetic
+    `GET /providers/{id}/availability` performs, which is what makes the two
+    answers agree rather than merely tend to.
+
+    The lock comes first, on the **vehicle class** row, for exactly the reason the
+    active-booking cap locks the owner: counting and then inserting is a race, and
+    two requests can otherwise both see the last car free and both take it.
+
+    **That same row is what scheduling a blackout window locks**, so a booking and
+    a maintenance window cannot race either: one of them waits for the other to
+    commit and then counts what it did. Locking the vehicle would not have been
+    enough -- a booking names a class, not a car, and cannot know which vehicle to
+    lock.
+
+    **Lock order matters.** Every path takes owner, then vehicle class, then
+    vehicle. Taking them in opposite orders in two different routes is how a
+    deadlock is built, and PostgreSQL would resolve it by killing one caller's
+    transaction at random.
+
+    A class whose cars have since been sold, or blacked out after the fact, can
+    hold more bookings than it now has room for. Those bookings stand -- history is
+    never destroyed to satisfy a later rule -- and only new ones are refused.
     """
     db.execute(
         select(VehicleClass.id)
@@ -99,7 +207,14 @@ def ensure_class_has_room(
         .with_for_update()
     )
 
-    capacity = count_vehicles_in_class(db, vehicle_class.id)
+    total = count_vehicles_in_class(db, vehicle_class.id)
+    blacked_out = count_blacked_out_vehicles(
+        db, vehicle_class.id, start_date, end_date
+    )
+    # Never negative: a car can be counted out only once, but clamping keeps the
+    # arithmetic honest if that ever stops being true.
+    available = max(0, total - blacked_out)
+
     peak = (
         db.scalar(
             _PEAK_BOOKINGS_ON_ANY_DAY,
@@ -113,21 +228,14 @@ def ensure_class_has_room(
         or 0
     )
 
-    if peak >= capacity:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Vehicle class '{vehicle_class.name}' is fully booked between "
-                f"{start_date} and {end_date}. "
-                + (
-                    "This class has no vehicles."
-                    if capacity == 0
-                    else "Its only vehicle is taken on at least one of those days."
-                    if capacity == 1
-                    else f"All {capacity} of its vehicles are taken on at least "
-                    "one of those days."
-                )
-            ),
+    if peak >= available:
+        raise _refusal(
+            name=vehicle_class.name,
+            start_date=start_date,
+            end_date=end_date,
+            total=total,
+            blacked_out=blacked_out,
+            available=available,
         )
 
 
