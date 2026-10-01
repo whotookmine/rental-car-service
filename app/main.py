@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
 from app.auth.router import router as auth_router
+from app.blackout_windows.router import router as blackout_windows_router
 from app.bookings.router import router as bookings_router
 from app.branch_distances.router import router as branch_distances_router
 from app.branches.router import router as branches_router
@@ -47,3 +48,4 @@ app.include_router(vehicle_classes_router)
 app.include_router(vehicles_router)
 app.include_router(one_way_routes_router)
 app.include_router(quotations_router)
+app.include_router(blackout_windows_router)

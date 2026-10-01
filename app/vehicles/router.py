@@ -184,8 +184,8 @@ def update_vehicle(
     summary="Remove a vehicle (admin only)",
     description=(
         "Lowers that class's `vehicle_count`. A car that anything else still "
-        "points at — a maintenance blackout window, once ticket 39 lands — is "
-        "refused with 409 rather than taking its references down with it."
+        "points at — a maintenance blackout window — is refused with 409 rather "
+        "than taking its references down with it."
     ),
     responses={
         404: {"description": "Vehicle not found."},

@@ -42,6 +42,13 @@ one of that provider's vehicle classes. A car may be reclassified within its pro
 catalogue but never passes to another provider.
 _Avoid_: Unit, car, asset, fleet item, inventory item
 
+**Blackout Window**:
+A period, counted inclusively, during which one vehicle is off the road for servicing
+and cannot be rented. Scheduled per vehicle, never per vehicle class: a workshop takes
+one car in, not a category. Two windows on the same vehicle may not overlap, and a
+window may be recorded for days that have already passed.
+_Avoid_: Downtime, maintenance period, service slot, unavailability, outage
+
 **Review**:
 A rating from 1 to 5 with written comment that a registered user leaves against the
 provider of one of their own bookings, once that booking's rental period has ended.
