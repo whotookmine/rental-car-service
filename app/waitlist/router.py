@@ -8,7 +8,7 @@ rather than rent, and a waitlist place is a claim on inventory.
 """
 
 from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user, require_registered_user
@@ -34,18 +34,28 @@ router = APIRouter(tags=["waitlist"])
 
 
 def _read(db: Session, entry: WaitlistEntry) -> WaitlistEntryRead:
-    """Build the response, computing position and activity at read time."""
-    return WaitlistEntryRead(
-        id=entry.id,
-        user_id=entry.user_id,
-        provider_id=entry.provider_id,
-        start_date=entry.start_date,
-        end_date=entry.end_date,
-        created_at=entry.created_at,
-        vehicle_class=entry.vehicle_class,
-        position=position_of(db, entry),
-        is_active=is_active(entry),
-    )
+    """Build the response, computing position and activity at read time.
+
+    Every mapped column is copied across **by reflection** rather than named one by
+    one, and that is deliberate. Ticket 44 added `offered_at` to the model and to
+    the schema and this function still listed the fields by hand, so the new field
+    silently took its default and every response reported `offered_at: null` while
+    the database held a timestamp. A field that is sometimes a lie is worse than an
+    absent one -- the same defect as the nested provider ratings in ticket 50, found
+    the same way: by a test that knew what the answer should be.
+
+    Reflection means adding a column cannot quietly fail to appear. The computed
+    fields are then layered on top, and they are the only ones a reader has to think
+    about.
+    """
+    data = {
+        attr.key: getattr(entry, attr.key)
+        for attr in inspect(entry).mapper.column_attrs
+    }
+    data["vehicle_class"] = entry.vehicle_class
+    data["position"] = position_of(db, entry)
+    data["is_active"] = is_active(entry)
+    return WaitlistEntryRead.model_validate(data)
 
 
 @router.post(

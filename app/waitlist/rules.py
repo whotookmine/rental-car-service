@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.bookings.rules import measure_room
-from app.core.clock import today
+from app.core.clock import now, today
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
 from app.waitlist.models import WaitlistEntry
@@ -79,6 +79,69 @@ def is_active(entry: WaitlistEntry) -> bool:
     the business timezone, like every other date comparison here.
     """
     return entry.end_date >= today()
+
+
+def offer_released_capacity(
+    db: Session,
+    vehicle_class_id: int,
+) -> WaitlistEntry | None:
+    """Offer newly freed capacity to whoever has waited longest and can use it.
+
+    Called after a booking is deleted, inside the same transaction and **under the
+    vehicle class row lock already taken by the caller**. Without that lock two
+    simultaneous cancellations would both read the same queue, both find the same
+    person at the front, and both offer them capacity -- so one car would be
+    promised twice and the second person in the queue would never hear anything.
+
+    Strict FIFO, and strictly that: candidates are ordered by when they joined and
+    by nothing else. Not by who asked, not by who is watching, and not by whose
+    range is the best fit. The requirement is explicit, and "the best fit first"
+    would be a defensible policy that is not the one that was asked for.
+
+    An entry is a candidate when all three hold:
+
+    - **It has not already been offered.** This is what makes two cancellations in
+      quick succession reach the first and then the second person, rather than both
+      reaching the first.
+    - **Its range has not passed.** A car freed for days that have gone is no use
+      to anyone, and the requirement says such entries are never offered.
+    - **Its range now has room.** This is the honest reading of "the first entry
+      whose date range the freed capacity satisfies": rather than compare date
+      ranges and guess, ask the one function that knows -- if the class is no longer
+      full over that entry's range, the release is usable by that entry.
+
+    An entry that fails only the third test is **skipped without losing its place**:
+    it is not marked, not moved and not recorded as passed over, so the next release
+    considers it again in exactly the same position. That falls out of computing
+    candidacy rather than storing it.
+
+    Returns the entry that was offered, or None when nobody in the queue can use
+    what was freed -- in which case the capacity simply becomes available to anyone,
+    which is what the requirement asks for.
+    """
+    waiting = db.scalars(
+        select(WaitlistEntry)
+        .where(
+            WaitlistEntry.vehicle_class_id == vehicle_class_id,
+            WaitlistEntry.offered_at.is_(None),
+            # Inert entries are never offered. Compared through `today()`, in the
+            # business timezone, like every other date rule here.
+            WaitlistEntry.end_date >= today(),
+        )
+        .order_by(WaitlistEntry.created_at, WaitlistEntry.id)
+    ).unique().all()
+
+    for entry in waiting:
+        room = measure_room(db, vehicle_class_id, entry.start_date, entry.end_date)
+        if room.is_full:
+            # Still nothing for this one. Left completely untouched, so its place
+            # in the queue is exactly what it was.
+            continue
+        entry.offered_at = now()
+        db.flush()
+        return entry
+
+    return None
 
 
 def ensure_class_is_full(

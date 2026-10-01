@@ -275,6 +275,29 @@ domain rule and has no business day.
 - An entry whose range has since passed is **inert**: it stays visible as the holder's own
   record with `is_active: false`, and no release will be offered to it. A whole queue goes
   inert together, because the range is part of the queue's identity.
+- **Deleting a booking offers the capacity it frees to the queue**, inside the same
+  transaction and under the vehicle class row lock. Candidates are entries for that class
+  that have not already been offered, whose range has not passed, and whose range now has
+  room; the earliest joiner among them wins. Strict FIFO and strictly that — not the best
+  fit, not whoever asks first.
+- "Whose range the freed capacity satisfies" is answered by asking `measure_room` for that
+  entry's range rather than by comparing date ranges. If the class is no longer full over
+  the range someone wants, the release is usable by them; that is the same question booking
+  asks, so the answer cannot disagree with it.
+- An entry the release cannot satisfy is **skipped without losing its place**: not marked,
+  not moved, not recorded as passed over, so the next release considers it in exactly the
+  same position. This falls out of computing candidacy rather than storing it.
+- `offered_at` is what takes an entry out of contention, which is what makes two
+  cancellations in quick succession reach the first and then the *second* person rather than
+  both reaching the first. A release nobody in the queue can use leaves every entry
+  untouched and the capacity simply becomes available to anyone.
+- **Nothing is booked automatically.** An offer is an opportunity; it creates no booking.
+- The lock is taken **before** the delete and held across the offer, because deleting and
+  then offering is two steps over one piece of state. Without it two simultaneous
+  cancellations would both read the same queue, both find the same person at the front, and
+  both offer them the capacity — one car promised twice and the second person never hearing
+  anything. Verified by firing two cancellations at the same instant: the two releases reach
+  two different people.
 - **Admins do not join waitlists**, for the reason they do not hold bookings: a place in a
   queue is a claim on inventory, and they manage rather than rent. Another user's entry
   answers 404, for an admin too — nothing in the requirement asks an admin to administer a
@@ -569,6 +592,7 @@ domain rule and has no business day.
 - `GET /waitlist_entries` — your own places, each with `position`, ordered by the range
   wanted then by when you joined. None gives `[]`.
 - `DELETE /waitlist_entries/{id}` — leave. 204, no body.
+- An entry carries `offered_at`: null until released capacity has been offered to it.
 - There is no route that lists a whole queue, and no route that shows another person's place.
   Who else is waiting is not the caller's business; their own position is all they need, and
   publishing the queue would let anyone measure a provider's demand.
@@ -715,6 +739,8 @@ the error shape.
 | An admin joining a waitlist | 403 |
 | Another user's waitlist entry, or an admin reaching for one | 404 |
 | Leaving a waitlist | 204, no body |
+| Deleting a booking when someone is waiting who can use it | 204; the earliest such entry gains `offered_at` |
+| Deleting a booking when nobody waiting can use it | 204; every entry untouched |
 
 ## Seeding and testing
 

@@ -163,7 +163,7 @@ in the demo script and the Postman collection.
 |---|---|---|---|
 | **4** | Join a waitlist for a fully-booked vehicle class on a date range | ✅ built | Ticket 43. `POST /providers/{id}/waitlist_entries`, `GET /waitlist_entries`, `DELETE /waitlist_entries/{id}`. Verified: three users queue at positions 1–2–3, joining a class that is *not* full is refused 409, a second place in one queue is 409, leaving closes the gap |
 | 4a | Notify waitlisted users | ◐ substrate built, nothing emits | Ticket 42 built the notification records and the read surface (`GET /notifications`, `POST /notifications/{id}/read`), verified end to end. **Nothing produces one yet** — the waitlist is the first producer, so this clause is not met until ticket 44 |
-| 4b | Strict FIFO release on cancellation | ❌ not built | Ticket 44 |
+| 4b | Strict FIFO release on cancellation | ✅ built | Ticket 44. Verified: three queue, one cancellation reaches only the front; two cancellations reach the first then the second; an entry the release cannot use is skipped and keeps its place; two simultaneous cancellations reach two different people |
 | 4c | Time-limited exclusive claim window | ❌ not built | Ticket 45 |
 | 4d | Expiry passes the claim to the next in the queue | ❌ not built | Ticket 46 |
 | | | | *No waitlist route and no waitlist table: `/waitlist` and `/providers/1/waitlist` answer `404`. `/notifications` now exists and works, but has nothing to report* |

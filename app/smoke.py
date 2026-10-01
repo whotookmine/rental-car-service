@@ -777,6 +777,29 @@ def main() -> int:
             else:
                 s.failed.append("the second moves up to position 1")
                 print(f"  FAIL  the second moves up to position 1  {after}")
+            # Ticket 44: cancelling the booking offers the freed capacity to the
+            # front of the queue, and to nobody else.
+            if s.booked:
+                s.check("cancel the booking that filled it", 204, "DELETE",
+                        f"/bookings/{s.booked[-1]}", token=admin)
+                s.booked.pop()
+            _, q2_rows = s.call("GET", "/waitlist_entries", token=q2)
+            offered = (isinstance(q2_rows, list) and q2_rows
+                       and q2_rows[0]["offered_at"] is not None)
+            if offered:
+                s.passed += 1
+                print("  pass  the release is offered to the front of the queue")
+            else:
+                s.failed.append("the release is offered to the front of the queue")
+                print(f"  FAIL  the release is offered to the front  {q2_rows}")
+            # An offer is an opportunity: it must not have created a booking.
+            _, q2_bookings = s.call("GET", "/bookings", token=q2)
+            if q2_bookings == []:
+                s.passed += 1
+                print("  pass  nothing was booked automatically  [[]]")
+            else:
+                s.failed.append("nothing was booked automatically")
+                print(f"  FAIL  nothing was booked automatically  {q2_bookings}")
             s.check("the second leaves too", 204, "DELETE",
                     f"/waitlist_entries/{e2['id']}", token=q2)
         s.check("an over-large entry id", 422, "DELETE",
