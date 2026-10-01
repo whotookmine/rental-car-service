@@ -16,8 +16,8 @@ database.
 ## Verdict in one line
 
 **Round one is complete and conforming, except the Postman collection** (ticket 22 — a
-named deliverable, not a nicety). Round two is partially built: requirement 5 is
-implemented apart from its fee, and requirements 4, 6 and 7 have no surface yet.
+named deliverable, not a nicety). Of round two, **requirement 7 is complete**; requirement 5
+is built apart from its relocation fee; requirements 4 and 6 have no surface yet.
 
 ---
 
@@ -175,7 +175,7 @@ in the demo script and the Postman collection.
 | 6b | Distance-tiered delivery charge added to the quotation | ❌ not built | Ticket 38 |
 | **7** | Schedule maintenance blackout windows **per vehicle** | ✅ built | Ticket 39. `POST`/`GET /vehicles/{id}/blackout_windows`, `GET`/`PUT`/`DELETE /blackout_windows/{id}`. Verified: scheduled 201, overlapping 409, adjacent 201, past 201, registered-user write 403, vehicle with a window `DELETE` 409 |
 | 7a | Blacked-out vehicles excluded from availability searches | ✅ built | Ticket 40. Verified: 3 cars with 1 blacked out reports 2; all 3 blacked out reports 0 with the class still listed; a window ending the day before the range costs nothing; cancelling restores the count immediately |
-| 7b | Any booking overlapping a blackout is prevented | ❌ not built | Ticket 41 |
+| 7b | Any booking overlapping a blackout is prevented | ✅ built | Ticket 41. Verified: booking a wholly blacked-out class 409, re-dating onto blacked-out days 409 for owner **and** admin, a class short through maintenance *and* bookings together 409 naming both, availability and booking agreeing in all three directions |
 
 Tables present: `users, providers, branches, branch_distances, one_way_routes,
 vehicle_classes, vehicles, bookings, reviews`. Nothing for waitlists, notifications,
@@ -187,10 +187,7 @@ delivery or blackouts.
 
 In the order that matters:
 
-0. **Ticket 41**, requirement 7's last clause. Availability now reports a wholly
-   blacked-out class as `free_count: 0` and booking **still accepts it**, so the two halves
-   of the service contradict each other in a way a grader reaches in one click. This is the
-   most visible defect currently in the system.
+0. ~~Ticket 41~~ — **done. Requirement 7 is now complete in all three clauses.**
 1. **Ticket 22 — Postman collection and README.** The only *named* deliverable in the
    non-functional requirements, and the only thing in round one that is missing. Owner
    Garfield. Ticket 49 then extends the collection to the round-two surface.

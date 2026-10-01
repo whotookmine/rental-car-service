@@ -12,6 +12,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.blackout_windows.models import BlackoutWindow
+from app.vehicle_classes.models import VehicleClass
 from app.vehicles.models import Vehicle
 
 
@@ -70,10 +71,27 @@ def ensure_no_overlap(
     this check exists so the ordinary case gets a sentence a human can read
     instead of an IntegrityError.
 
-    **Lock order.** A vehicle row is locked after its class, never before: ticket
-    41 will take the owner, then the vehicle class, then reach blackouts, and two
-    paths taking the same rows in opposite orders is how a deadlock is built.
+    **Two locks, in a fixed order: the vehicle class, then the vehicle.**
+
+    The class row is not locked for this function's own sake -- nothing here reads
+    the class. It is locked because `ensure_class_has_room` locks it when a booking
+    counts how many cars are free, and since ticket 41 that count includes cars off
+    the road for maintenance. Without contending on the same row, a booking could
+    read "one car free, none in the workshop" at the same moment this function
+    inserts the window that makes that false, and the booking would be accepted on
+    a reading that was already stale. A booking cannot lock the vehicle instead: it
+    names a class, not a car, and has no way to know which vehicle to lock.
+
+    The order is owner, then vehicle class, then vehicle, on every path that takes
+    more than one. Two paths taking the same rows in opposite orders is how a
+    deadlock is built, and PostgreSQL would resolve it by killing one caller's
+    transaction at random.
     """
+    db.execute(
+        select(VehicleClass.id)
+        .where(VehicleClass.id == vehicle.vehicle_class_id)
+        .with_for_update()
+    )
     db.execute(select(Vehicle.id).where(Vehicle.id == vehicle.id).with_for_update())
 
     clash = overlapping_windows(

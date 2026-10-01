@@ -84,13 +84,32 @@ No rule may call `date.today()` directly.
 - Overlapping bookings by the same user are allowed. The active cap bounds abuse, and a
   class's capacity bounds the rest: a user may hold two bookings at once so long as the
   class has room for both.
-- **A vehicle class is booked at most as many times on any one day as it has vehicles.**
-  The check is per day, not per booking: two bookings sharing even one day both consume a
-  car that day, so a whole-period comparison would let a class be over-booked by bookings
-  that merely fail to nest. The busiest day in the requested period is compared against
-  the count of cars in the class, and a peak at or above capacity is refused with 409
-  naming the class and the dates. Adjacent periods do not conflict — a booking ending on
-  the 10th and one starting on the 11th share no day.
+- **A vehicle class is booked at most as many times on any one day as it has vehicles on
+  the road.** The check is per day, not per booking: two bookings sharing even one day both
+  consume a car that day, so a whole-period comparison would let a class be over-booked by
+  bookings that merely fail to nest. The busiest day in the requested period is compared
+  against the cars available for that period, and a peak at or above it is refused with 409
+  naming the class and the dates. Adjacent periods do not conflict — a booking ending on the
+  10th and one starting on the 11th share no day.
+- **Cars available = cars in the class − cars off the road for maintenance for any day of
+  the period.** Since ticket 41 all three counts meet in one comparison, so two vehicles with
+  one blacked out and one already booked is a full class even though neither count alone
+  reaches two. A car blacked out for a single day of the period is out for the whole period:
+  a car you would have to hand back to the workshop midway through is not a car you can rent
+  for the period. This is the arithmetic `GET /providers/{id}/availability` performs, which
+  is what makes the two agree rather than merely tend to.
+- **The refusal says which shortfall it is**, because the remedy differs and a caller cannot
+  guess:
+  - no vehicles at all — *"it has no vehicles"*; nothing to wait for
+  - every car in the workshop — *"off the road for maintenance … Waiting will not free one,
+    because no other booking is holding them; try different dates"*
+  - fully booked — the class's cars are *"taken on at least one of those days"*; a
+    cancellation does free one, which is what the waitlist in ticket 43 will queue for
+  - both — *"N of its M vehicles are off the road for maintenance … and the K still on the
+    road are taken"*, so the caller knows part of the shortfall will never be released
+    however long they wait
+  The word *unavailable* is deliberately not used: `CONTEXT.md` forbids it under **Fully
+  Booked**, precisely so that the two situations cannot be blurred into one sentence.
 - A class with no vehicles refuses every booking, and says so rather than reporting a
   generic conflict.
 - The capacity check applies to re-dating as well as creation, for owners and admins
@@ -105,9 +124,12 @@ No rule may call `date.today()` directly.
   are refused.
 - The count is taken under a row lock on the vehicle class, for the reason the active cap
   locks the owner: counting and then inserting is a race, and two requests could otherwise
-  both see the last car free and both take it. **Every path that takes both locks takes
-  the owner first and the class second.** Two routes taking them in opposite orders is how
-  a deadlock is built.
+  both see the last car free and both take it. **Scheduling a blackout window locks that same
+  row**, so a booking and a maintenance window cannot race either — one waits for the other
+  to commit and then counts what it did. A booking cannot lock the vehicle instead: it names
+  a class, not a car, and has no way to know which vehicle to lock. **Lock order is owner,
+  then vehicle class, then vehicle, on every path that takes more than one.** Two routes
+  taking them in opposite orders is how a deadlock is built.
 - The caller's own cap is checked before the class's capacity. It is the limit they
   control entirely, and checking it first skips the per-day query for a request that would
   fail regardless.
@@ -172,16 +194,16 @@ No rule may call `date.today()` directly.
   answer 404, matching the catalogue list. The same date shape rules as booking creation
   apply (end on or after start, at most 30 days); violations answer 422. The no-past-start
   rule does not apply. Any authenticated caller may use this route.
-- **Availability and booking agree on bookings, and do not yet agree on blackouts.** If
-  `free_count` is zero because the class is fully booked, booking is refused; if it is one
-  or more for that reason, booking succeeds. But a class whose every car is in the workshop
-  reports zero and **still accepts a booking**, because enforcement is ticket 41. The gap is
-  recorded here rather than left to be discovered:
+- **Availability and booking agree, in both directions and for both reasons.** Since
+  ticket 41 they perform the same arithmetic — vehicles in the class, minus those off the
+  road for any day of the range, against the busiest day's bookings — so `free_count: 0`
+  always means booking is refused and one or more always means it succeeds, whether the
+  shortfall is demand or maintenance:
 
   ```
-  every car in the class blacked out over the range
-    GET  availability -> free_count 0
-    POST booking      -> 201
+  SUV over its own blackout                 free=0  booking=409
+  Economy, 2 of 3 blacked out + 1 booked    free=0  booking=409
+  Economy on a clear range                  free=3  booking=201
   ```
 
 ### Vehicle classes
@@ -254,18 +276,33 @@ No rule may call `date.today()` directly.
   `EXCLUDE USING gist (vehicle_id WITH =, daterange(start_date, end_date, '[]') WITH &&)`,
   which needs the `btree_gist` extension — created by the migration, trusted since
   PostgreSQL 13 so no superuser is required.
-- Scheduling takes a row lock on the vehicle first, for the same reason the capacity rule
-  locks the vehicle class: checking and then inserting is a race. **Lock order** is owner,
-  then vehicle class, then vehicle — every path that takes more than one takes them this
-  way round.
+- Scheduling takes two row locks, the vehicle class and then the vehicle. The vehicle guards
+  the overlap check against another window being inserted concurrently; **the class is locked
+  only so that this path contends with booking's capacity count**, which since ticket 41
+  includes cars off the road. Without it, a booking could read "one car free, none in the
+  workshop" at the moment this inserts the window that makes that false, and be accepted on a
+  reading already stale. **Lock order** is owner, then vehicle class, then vehicle — every
+  path that takes more than one takes them this way round.
 - A window carries no free-text reason. Nothing asks for one, and an empty field invites
   being filled with the rule it was meant to explain.
 - A window's foreign key to its vehicle is `ON DELETE RESTRICT`: a car with a service
   history cannot be removed until its windows are cancelled, which answers 409.
-- **A window reduces availability but does not yet refuse a booking.** Since ticket 40
-  `GET /providers/{id}/availability` does not count a car whose window overlaps the range.
-  Booking still accepts it: that is ticket 41. Until then a car can be booked while it is
-  in the workshop, and availability will have said so without being able to stop it.
+- **A window both reduces availability and refuses a booking.** Ticket 40 took blacked-out
+  cars out of `GET /providers/{id}/availability`; ticket 41 made booking and re-dating refuse
+  for the same reason, with the same arithmetic, so the two can no longer disagree.
+- **Scheduling a window over a booking that already exists is allowed, and the booking
+  stands.** The alternatives were refusing the window or flagging the booking, and both were
+  rejected. Refusing would mean the database cannot record a car that has broken down, which
+  is the one thing maintenance scheduling exists for — reality does not ask permission.
+  Flagging would add a field to a booking that nothing reads and no rule acts on. So the
+  window is written, every existing booking is untouched, and the class is simply
+  over-committed for those days: availability reports the lower number immediately, and new
+  bookings are refused. Nobody's rental quietly disappears, which is the part that matters.
+  An admin who needs the car back has to talk to the renter and delete the booking, which is
+  what would happen in the world anyway.
+- Nothing stops a window being scheduled over a booking **by accident**, and that is a real
+  cost of this choice. It is accepted knowingly: the alternative silently loses the ability
+  to record facts.
 
 ### Authorization
 
@@ -503,9 +540,12 @@ the error shape.
 | Availability for a class whose every car is blacked out over the range | 200, `free_count: 0` — never omitted |
 | A blackout window ending the day before the range starts | does not reduce `free_count` |
 | A blackout window starting on the final day of the range | reduces `free_count` |
-| Booking a class whose vehicles are all taken on any day of the period | 409 |
-| Booking a class that has no vehicles at all | 409 |
-| Re-dating a booking into a period where its class is full | 409 |
+| Booking a class whose vehicles are all taken on any day of the period | 409 "is fully booked" |
+| Booking a class that has no vehicles at all | 409 "it has no vehicles" |
+| Booking a class whose every vehicle is off the road for maintenance for part of the period | 409 "off the road for maintenance … try different dates" |
+| Booking a class short of cars through maintenance *and* bookings together | 409 naming both counts |
+| Re-dating a booking into a period where its class is full, for any of those reasons | 409, for owner and admin alike |
+| Scheduling a blackout window over a booking that already exists | 201 — allowed; the booking stands |
 | Sending `vehicle_class_id` when re-dating a booking | 422 — refused, never silently ignored |
 | A duplicate vehicle class name under one provider, in any case | 409 |
 | Removing a vehicle class that something still references | 409 |

@@ -638,6 +638,72 @@ def main() -> int:
             s.check("cancel the adjacent window", 204, "DELETE",
                     f"/blackout_windows/{adjacent['id']}", token=admin)
 
+        # Ticket 41: enforcement. A class with every car in the workshop must refuse
+        # a booking, and availability and booking must say the same thing. Done on
+        # a class of its own so the counts are unambiguous.
+        made2 = s.check("a class to black out entirely", 201, "POST",
+                        f"/providers/{provider}/vehicle_classes",
+                        {"name": f"Smoke Maintenance {os.getpid()}",
+                         "description": "One car, taken off the road."}, token=admin)
+        solo_class = made2["id"] if isinstance(made2, dict) else None
+        made3 = s.check("its one car", 201, "POST",
+                        f"/vehicle_classes/{solo_class}/vehicles",
+                        {"plate": f"SMOKE-M{os.getpid()}"}, token=admin)
+        solo_car = made3["id"] if isinstance(made3, dict) else None
+
+        def solo_free(start: int, end: int) -> int | None:
+            _, rows = s.call(
+                "GET",
+                f"/providers/{provider}/availability"
+                f"?start_date={d(start)}&end_date={d(end)}",
+                token=user_a,
+            )
+            for row in rows if isinstance(rows, list) else []:
+                if row["vehicle_class_id"] == solo_class:
+                    return row["free_count"]
+            return None
+
+        solo_booking = {
+            "vehicle_class_id": solo_class,
+            "pickup_branch_id": branch,
+            "start_date": d(95),
+            "end_date": d(96),
+        }
+        if solo_free(95, 96) == 1:
+            s.passed += 1
+            print("  pass  the new class reports one car free  [1]")
+        else:
+            s.failed.append("the new class reports one car free")
+            print(f"  FAIL  the new class reports one car free  {solo_free(95, 96)}")
+        _, grounded = s.call("POST", f"/vehicles/{solo_car}/blackout_windows",
+                             {"start_date": d(95), "end_date": d(96)}, token=admin)
+        if solo_free(95, 96) == 0:
+            s.passed += 1
+            print("  pass  availability reports zero once blacked out  [0]")
+        else:
+            s.failed.append("availability reports zero once blacked out")
+            print(f"  FAIL  availability reports zero once blacked out  {solo_free(95, 96)}")
+        # The whole point of ticket 41: the two now agree.
+        s.check("booking refused for maintenance, not capacity", 409, "POST",
+                f"/providers/{provider}/bookings", solo_booking, token=user_a)
+        if isinstance(grounded, dict):
+            s.check("cancel the window", 204, "DELETE",
+                    f"/blackout_windows/{grounded['id']}", token=admin)
+        s.booking_check("the same booking is then accepted", 201,
+                        f"/providers/{provider}/bookings", solo_booking, user_a)
+        # Re-dating onto blacked-out days is refused for owner and admin alike.
+        _, again = s.call("POST", f"/vehicles/{solo_car}/blackout_windows",
+                          {"start_date": d(98), "end_date": d(99)}, token=admin)
+        moved = {"start_date": d(98), "end_date": d(99)}
+        if s.booked:
+            s.check("the owner may not re-date onto them", 409, "PUT",
+                    f"/bookings/{s.booked[-1]}", moved, token=user_a)
+            s.check("nor may an admin", 409, "PUT",
+                    f"/bookings/{s.booked[-1]}", moved, token=admin)
+        if isinstance(again, dict):
+            s.check("cancel that window too", 204, "DELETE",
+                    f"/blackout_windows/{again['id']}", token=admin)
+
         # RESTRICT: the car cannot go while it still has a service history.
         s.check("a vehicle with a window cannot be removed", 409, "DELETE",
                 f"/vehicles/{vehicle}", token=admin)
@@ -680,6 +746,10 @@ def main() -> int:
                         f"/blackout_windows/{row['id']}", token=admin)
         s.check("remove the throwaway vehicle", 204, "DELETE", f"/vehicles/{vehicle}",
                 token=admin)
+        s.check("remove the maintenance-test car", 204, "DELETE",
+                f"/vehicles/{solo_car}", token=admin)
+        s.check("remove the maintenance-test class", 204, "DELETE",
+                f"/vehicle_classes/{solo_class}", token=admin)
 
     except Precondition as error:
         print(f"\nPRECONDITION NOT MET: {error}")
