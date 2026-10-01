@@ -73,6 +73,37 @@ uv run uvicorn app.main:app --reload --port 8000
   to get a working collection).
 - Interactive docs: <http://127.0.0.1:8000/docs>.
 
+## Smoke run
+
+With the app running and the database seeded:
+
+```bash
+uv run python -m app.smoke
+```
+
+It calls the real API over HTTP and checks the status code of every answer — 80 checks
+across authentication, providers, the booking lifecycle, capacity, one-way rentals,
+reviews, admin oversight and the admin-only fleet routes, negative cases included.
+
+```
+80/80 checks passed, 0 skipped
+```
+
+It asserts **status codes only**, on purpose: response shapes change as the model grows,
+status codes do not, so a failure here is always a real one. It is not an automated test
+suite — there is none, by decision — and it does not replace the Postman collection, which
+is what demonstrates behaviour to a reader. See the Verification table in `docs/SPEC.md`.
+
+Points worth knowing:
+
+- It needs nothing configured. `SMOKE_BASE_URL` overrides the default
+  `http://localhost:8000`.
+- It registers its own `smoke-*@example.com` users and deletes every booking and review it
+  creates, so it can be run repeatedly without re-seeding. The seeded `admin`, `demo` and
+  `fresh` accounts are left usable for a demo.
+- Exit codes: `0` everything passed, `1` a check failed, **`2` the preconditions were not
+  met** — usually `uv run python -m app.seed` is all it wants. A `2` is not a test failure.
+
 ## Configuration
 
 Every variable is listed in `.env.example` with a placeholder value. `.env` is untracked

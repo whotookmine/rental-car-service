@@ -92,6 +92,11 @@ For each ticket, against a running app and a real database:
 - Check the migration round-trips: `upgrade` → `downgrade base` → `upgrade`, then
   `alembic check` for drift.
 - Paste real command output when reporting. If something does not work, say so.
+- **Run `uv run python -m app.smoke` before closing any ticket.** It walks the whole
+  service asserting status codes and takes seconds. It is not the automated suite this
+  project decided against — see the Verification table in `docs/SPEC.md` — and it does not
+  replace exercising the ticket's own criteria by hand; it catches what the ticket broke
+  somewhere else. Exit `2` means the database needs re-seeding, not that anything failed.
 
 Credentials must never appear in a response body. Passwords, hashes, tokens belonging to
 someone else. This has already been a live defect once: validation errors echoed the
@@ -131,4 +136,5 @@ docker compose up -d                     # per-developer PostgreSQL
 uv run alembic upgrade head              # apply migrations
 uv run python -m app.create_admin        # provision an admin (no API route does this)
 uv run uvicorn app.main:app --reload     # run the API
+uv run python -m app.smoke               # status-code smoke run (needs the API up)
 ```
