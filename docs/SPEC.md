@@ -4,6 +4,11 @@ Terminology is defined in [CONTEXT.md](../CONTEXT.md). Decisions with lasting
 consequences are recorded in [docs/adr](./adr). This file is the working specification:
 the rules, the surface, and the shape of the system as agreed.
 
+This is the design we agreed, not the brief we were handed. The requirements as given live
+verbatim in [REQUIREMENTS-TRACE.md](./REQUIREMENTS-TRACE.md), mapped clause by clause to
+what satisfies them — read that one when the question is *"does this meet the
+requirements?"* rather than *"how does this behave?"*
+
 ## Stack
 
 Python, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic, PostgreSQL. Feature-first layout
