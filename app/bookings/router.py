@@ -39,7 +39,7 @@ router = APIRouter(tags=["bookings"])
         "vehicle classes is being rented, which is fixed for the same reason."
     ),
     responses={
-        403: {"description": "Admins do not hold bookings."},
+        403: {"description": "Admins manage rentals rather than holding them."},
         404: {"description": "Provider not found."},
         409: {
             "description": (

@@ -10,6 +10,7 @@ against that booking's owner, not against themselves.
 """
 
 from datetime import date
+from typing import NamedTuple
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select, text
@@ -94,6 +95,68 @@ def count_blacked_out_vehicles(
             )
         )
         or 0
+    )
+
+
+class ClassRoom(NamedTuple):
+    """How much room a vehicle class has over one period, and why.
+
+    One home for this arithmetic. Three callers need it and need it to agree:
+    `ensure_class_has_room` refuses a booking, `GET /providers/{id}/availability`
+    reports a count, and the waitlist refuses to queue someone for a class that is
+    not actually full. Ticket 40 left availability and booking computing the same
+    thing in two places and they immediately disagreed; a third copy would have
+    been worse.
+    """
+
+    total: int
+    blacked_out: int
+    available: int
+    peak_bookings: int
+
+    @property
+    def is_full(self) -> bool:
+        """True when nothing more can be booked over the period."""
+        return self.peak_bookings >= self.available
+
+
+def measure_room(
+    db: Session,
+    vehicle_class_id: int,
+    start_date: date,
+    end_date: date,
+    *,
+    excluding_booking_id: int | None = None,
+) -> ClassRoom:
+    """Count vehicles, maintenance and bookings over one period.
+
+    Does **not** lock. A caller that is about to write on the strength of the
+    answer must take the vehicle class row lock first -- see
+    `ensure_class_has_room` -- and a caller that is only reporting need not.
+    """
+    total = count_vehicles_in_class(db, vehicle_class_id)
+    blacked_out = count_blacked_out_vehicles(
+        db, vehicle_class_id, start_date, end_date
+    )
+    peak = (
+        db.scalar(
+            _PEAK_BOOKINGS_ON_ANY_DAY,
+            {
+                "start_date": start_date,
+                "end_date": end_date,
+                "vehicle_class_id": vehicle_class_id,
+                "excluding_booking_id": excluding_booking_id,
+            },
+        )
+        or 0
+    )
+    # Never negative: a car can be counted out only once, but clamping keeps the
+    # arithmetic honest if that ever stops being true.
+    return ClassRoom(
+        total=total,
+        blacked_out=blacked_out,
+        available=max(0, total - blacked_out),
+        peak_bookings=peak,
     )
 
 
@@ -207,35 +270,21 @@ def ensure_class_has_room(
         .with_for_update()
     )
 
-    total = count_vehicles_in_class(db, vehicle_class.id)
-    blacked_out = count_blacked_out_vehicles(
-        db, vehicle_class.id, start_date, end_date
+    room = measure_room(
+        db,
+        vehicle_class.id,
+        start_date,
+        end_date,
+        excluding_booking_id=excluding_booking_id,
     )
-    # Never negative: a car can be counted out only once, but clamping keeps the
-    # arithmetic honest if that ever stops being true.
-    available = max(0, total - blacked_out)
-
-    peak = (
-        db.scalar(
-            _PEAK_BOOKINGS_ON_ANY_DAY,
-            {
-                "start_date": start_date,
-                "end_date": end_date,
-                "vehicle_class_id": vehicle_class.id,
-                "excluding_booking_id": excluding_booking_id,
-            },
-        )
-        or 0
-    )
-
-    if peak >= available:
+    if room.is_full:
         raise _refusal(
             name=vehicle_class.name,
             start_date=start_date,
             end_date=end_date,
-            total=total,
-            blacked_out=blacked_out,
-            available=available,
+            total=room.total,
+            blacked_out=room.blacked_out,
+            available=room.available,
         )
 
 

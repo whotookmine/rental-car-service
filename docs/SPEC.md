@@ -34,8 +34,10 @@ than a whole business. Since ticket 25 a booking names one.
 - **Blackout Window** — vehicle, `start_date`, `end_date` (both `DATE`, inclusive). A
   period one car is off the road for servicing. No two on one vehicle may overlap.
 - **Notification** — user, kind, message, `created_at`, `read_at` (nullable). A record the
-  system writes for one user to read. The only table whose temporal columns are instants
-  rather than dates.
+  system writes for one user to read.
+- **Waitlist Entry** — user, provider, vehicle class, `start_date`, `end_date`, `created_at`.
+  One person's place in one queue. `created_at` is an instant because its order *is* the
+  queue's order.
 - **Review** — booking (unique), rating 1–5, comment.
 
 ## Dates
@@ -51,10 +53,12 @@ Every domain period in this service is a plain `DATE`: rental periods, blackout 
 every rule that compares against "now". A rental has no pickup hour, and storing an instant
 would invite a timezone conversion to shift the day.
 
-**Notifications are the exception, and the first one.** When a notification was created and
-when it was read are records of a moment, not domain dates — rounding them to a day would
-make two notifications from one afternoon indistinguishable and unorderable. They are
-`timestamptz`.
+**Two things are exceptions.** When a notification was created and when it was read are
+records of a moment, not domain dates — rounding them to a day would make two notifications
+from one afternoon indistinguishable. And a waitlist entry's `created_at` *is* the queue's
+FIFO order, so it must distinguish two people who joined seconds apart. Both are
+`timestamptz`. A waitlist entry's wanted range stays a pair of plain dates, because that is
+a domain period like any other.
 
 `app/core/clock.py` owns both: `today()` for a domain date, `now()` for an instant. Calling
 `date.today()` or `datetime.now()` anywhere else is a bug, for the same reason in both cases —
@@ -184,7 +188,7 @@ domain rule and has no business day.
   It is absolute — no amount of freeing slots makes a reviewed booking movable into the
   future — whereas the cap clears on its own as rental periods end. Malformed dates still
   answer 422 ahead of either, since validation runs before the handler.
-- Admins do not hold bookings. `POST /providers/{id}/bookings` refuses an admin caller
+- Admins do not hold bookings or waitlist places. `POST /providers/{id}/bookings` refuses an admin caller
   with 403. The cap is a rule about a renter's behaviour and admin oversight is defined as
   acting on other people's bookings; an admin holding their own would make both ambiguous.
 
@@ -240,6 +244,41 @@ domain rule and has no business day.
 - **Nothing in the service emits a notification yet.** The waitlist (tickets 43 to 46) is the
   first producer. The fixture seeds two so the surface can be demonstrated at all, and they
   describe facts that are actually true of the fixture rather than invented events.
+
+### The waitlist
+
+- A **queue** is identified by a provider, a vehicle class and an **exact date range**. Two
+  people wanting overlapping but different ranges are in different queues, which is what the
+  requirement describes: capacity released for the 10th to the 12th is not capacity for the
+  9th to the 15th, and pretending otherwise would offer people cars they cannot use.
+- **Joining is refused with 409 when the class is not full** for those dates, and the refusal
+  says how many cars are free and that the answer is to book it. A waitlist is for when you
+  cannot have the thing; accepting an entry that could be converted into a booking
+  immediately would be a worse answer than a sentence.
+- Fullness is measured with `measure_room` — the one function booking, availability and the
+  waitlist all share. "Full" means the same thing in all three by construction, not by
+  coincidence. Ticket 40 is the reason this is stated: two copies of that arithmetic
+  disagreed within one ticket.
+- **One place per person per queue**; a second attempt is 409, guaranteed by a unique
+  constraint on `(user_id, vehicle_class_id, start_date, end_date)`. The message says that
+  joining twice would not move you up, because that is what someone trying it believes.
+- **Position is derived from join order, never stored.** 1 is the front. A stored position
+  would have to be rewritten for everyone behind anyone who leaves, and the first missed
+  update would leave two people believing they were third. Leaving a queue therefore closes
+  the gap immediately with no renumbering to go wrong.
+- Order is `created_at` then `id`. The id tiebreak is not decoration: two entries written in
+  the same microsecond would otherwise come back in whatever order PostgreSQL liked, and for
+  a queue whose whole promise is strict FIFO that would be a silent lottery.
+- The same date rules as booking creation: end on or after start, at most thirty days, and
+  **no past-dated ranges** — queueing for days that have gone is refused at the shape level
+  rather than accepted and quietly ignored.
+- An entry whose range has since passed is **inert**: it stays visible as the holder's own
+  record with `is_active: false`, and no release will be offered to it. A whole queue goes
+  inert together, because the range is part of the queue's identity.
+- **Admins do not join waitlists**, for the reason they do not hold bookings: a place in a
+  queue is a claim on inventory, and they manage rather than rent. Another user's entry
+  answers 404, for an admin too — nothing in the requirement asks an admin to administer a
+  queue, and narrow scope means the ordering rules have one code path rather than two.
 
 ### Providers
 
@@ -523,6 +562,17 @@ domain rule and has no business day.
   client that has the list needs neither.
 - Both routes require authentication; neither has an admin variant.
 
+### Waitlist surface
+
+- `POST /providers/{id}/waitlist_entries` — join, with `vehicle_class_id`, `start_date`,
+  `end_date`. 201 with your `position` and `is_active`.
+- `GET /waitlist_entries` — your own places, each with `position`, ordered by the range
+  wanted then by when you joined. None gives `[]`.
+- `DELETE /waitlist_entries/{id}` — leave. 204, no body.
+- There is no route that lists a whole queue, and no route that shows another person's place.
+  Who else is waiting is not the caller's business; their own position is all they need, and
+  publishing the queue would let anyone measure a provider's demand.
+
 ### Quotation surface
 
 - `POST /providers/{id}/quotations` — any authenticated caller; unauthenticated is 401.
@@ -657,6 +707,14 @@ the error shape.
 | Marking an already-read notification read again | 200, `read_at` unchanged |
 | Another user's notification, or an admin reaching for one | 404 |
 | Any attempt to create a notification through the API | 404 or 405 — no such route exists |
+| Joining a waitlist for a class that is not full | 409, naming how many cars are free |
+| Joining a queue you are already in | 409 |
+| Joining with a past-dated, reversed or over-long range | 422 |
+| Joining for a class belonging to another provider | 409 |
+| Joining a retired provider's queue | 409 |
+| An admin joining a waitlist | 403 |
+| Another user's waitlist entry, or an admin reaching for one | 404 |
+| Leaving a waitlist | 204, no body |
 
 ## Seeding and testing
 

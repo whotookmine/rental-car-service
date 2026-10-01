@@ -71,10 +71,19 @@ def require_registered_user(current_user: User = Depends(get_current_user)) -> U
     a renter's behaviour, and admin oversight is defined as acting on *other*
     people's bookings. An admin holding bookings of their own would make both
     ambiguous.
+
+    The message states the **rule** rather than one instance of it. It used to say
+    "Admins do not hold bookings", which was exactly right while bookings were the
+    only thing this guard protected; ticket 43 added waitlist places, and an admin
+    refused from a queue was being told something about bookings. One rule, one
+    home, one sentence that fits every caller of it.
     """
     if current_user.role == UserRole.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admins do not hold bookings.",
+            detail=(
+                "Admins manage rentals rather than holding them, so they cannot "
+                "book or join a waitlist."
+            ),
         )
     return current_user
