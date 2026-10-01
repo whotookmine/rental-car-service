@@ -162,13 +162,27 @@ No rule may call `date.today()` directly.
 - `GET /providers/{id}` returns retired providers too, so users can see who they booked.
 - `DELETE /providers/{id}` retires; it never removes the row.
 - `GET /providers/{id}/availability?start_date=&end_date=` returns the number of cars free
-  for the whole requested period for each of that provider's vehicle classes. A class with
-  no free car reports `free_count: 0` and is never omitted, so a caller can distinguish
-  "full" from "does not exist". Retired providers answer 404, matching the catalogue list.
-  The same date shape rules as booking creation apply (end on or after start, at most 30
-  days); violations answer 422. The no-past-start rule from booking creation does not apply.
-  The answer always agrees with what booking does: zero means booking is refused, one or
-  more means booking succeeds. Any authenticated caller may use this route.
+  for the whole requested period for each of that provider's vehicle classes. **Free means
+  both unbooked and on the road:** since ticket 40 a car with a blackout window overlapping
+  any day of the range is not counted at all, because a car in the workshop for part of the
+  range cannot be rented for the range. A class with no free car reports `free_count: 0` and
+  is never omitted, so a caller can distinguish "full" from "does not exist" — this is why
+  the blackout test sits in the join condition rather than a `WHERE` clause, which would
+  make a wholly blacked-out class disappear instead of reporting zero. Retired providers
+  answer 404, matching the catalogue list. The same date shape rules as booking creation
+  apply (end on or after start, at most 30 days); violations answer 422. The no-past-start
+  rule does not apply. Any authenticated caller may use this route.
+- **Availability and booking agree on bookings, and do not yet agree on blackouts.** If
+  `free_count` is zero because the class is fully booked, booking is refused; if it is one
+  or more for that reason, booking succeeds. But a class whose every car is in the workshop
+  reports zero and **still accepts a booking**, because enforcement is ticket 41. The gap is
+  recorded here rather than left to be discovered:
+
+  ```
+  every car in the class blacked out over the range
+    GET  availability -> free_count 0
+    POST booking      -> 201
+  ```
 
 ### Vehicle classes
 
@@ -248,9 +262,10 @@ No rule may call `date.today()` directly.
   being filled with the rule it was meant to explain.
 - A window's foreign key to its vehicle is `ON DELETE RESTRICT`: a car with a service
   history cannot be removed until its windows are cancelled, which answers 409.
-- **Nothing is enforced against a window yet.** A blackout neither reduces availability
-  nor refuses a booking; it is a record. Availability follows in ticket 40 and the booking
-  refusal in ticket 41. Until both land, a car can be booked while it is in the workshop.
+- **A window reduces availability but does not yet refuse a booking.** Since ticket 40
+  `GET /providers/{id}/availability` does not count a car whose window overlaps the range.
+  Booking still accepts it: that is ticket 41. Until then a car can be booked while it is
+  in the workshop, and availability will have said so without being able to stop it.
 
 ### Authorization
 
@@ -485,6 +500,9 @@ the error shape.
 | Removing a branch | 204, no body |
 | Availability search on a retired provider | 404 |
 | Availability search with end before start, or period over 30 days | 422 |
+| Availability for a class whose every car is blacked out over the range | 200, `free_count: 0` — never omitted |
+| A blackout window ending the day before the range starts | does not reduce `free_count` |
+| A blackout window starting on the final day of the range | reduces `free_count` |
 | Booking a class whose vehicles are all taken on any day of the period | 409 |
 | Booking a class that has no vehicles at all | 409 |
 | Re-dating a booking into a period where its class is full | 409 |
