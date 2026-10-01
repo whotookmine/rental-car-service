@@ -51,6 +51,7 @@ from app.vehicles.models import Vehicle
 # was caught before merging rather than by someone trying to demo.
 _WIPE_ORDER = (
     "notifications",
+    "waitlist_entries",
     "blackout_windows",
     "bookings",
     "vehicles",

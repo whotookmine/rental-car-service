@@ -20,3 +20,4 @@ from app.vehicles.models import Vehicle as Vehicle  # noqa: F401
 from app.one_way_routes.models import OneWayRoute as OneWayRoute  # noqa: F401
 from app.blackout_windows.models import BlackoutWindow as BlackoutWindow  # noqa: F401
 from app.notifications.models import Notification as Notification  # noqa: F401
+from app.waitlist.models import WaitlistEntry as WaitlistEntry  # noqa: F401

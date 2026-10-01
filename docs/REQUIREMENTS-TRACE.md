@@ -111,7 +111,7 @@ shown. The "Verified" column is the actual response, not a description of one.
 | 8 | The admin views **any** booking | role branch in `list_bookings` | ✅ admin `GET /bookings` → `[1,2,3,4,5]`; admin `GET /bookings/1` (another user's) → `200` |
 | 9 | The admin edits **any** booking | `PUT /bookings/{id}` | ✅ admin re-dated booking 2 → `200`; admin sending `end<start` → `422`, the same rules as the owner |
 | 10 | The admin deletes **any** booking | `DELETE /bookings/{id}` | ✅ `204` (exercised in tickets 13 and 20) |
-| 10a | Admins do not hold bookings of their own | `require_registered_user` | ✅ admin creating a booking → `403 Admins do not hold bookings.` |
+| 10a | Admins do not hold bookings of their own | `require_registered_user` | ✅ admin creating a booking → `403 "Admins manage rentals rather than holding them, so they cannot book or join a waitlist."` (reworded in ticket 43, when the same guard began protecting waitlist places too) |
 | A1 | Rate 1–5 and review, **only after the rental period has ended** | `POST /bookings/{id}/reviews` | ✅ ended booking → `201`; **not-yet-ended → `409`**; `rating:0` → `422`; `rating:6` → `422`; second review of the same booking → `409`; someone else's booking → `404` |
 | A2 | Average rating and review count for each provider in the list | read-time aggregate in `app/providers/` | ✅ after a 4-star review: `Fast Wheels 4.0 1`, others `None 0` — an unreviewed provider shows **no rating, not a zero** |
 | A3 | The admin deletes inappropriate reviews | `DELETE /reviews/{id}` | ✅ admin → `204`; a registered user who is not the author → `404`; afterwards the average returned to `None/0`, **the booking survived**, and the booking became reviewable again (`201`) |
@@ -161,7 +161,7 @@ in the demo script and the Postman collection.
 
 | # | Requirement clause | Status | Where / what is missing |
 |---|---|---|---|
-| **4** | Join a waitlist for a fully-booked vehicle class on a date range | ❌ not built | Ticket 43 |
+| **4** | Join a waitlist for a fully-booked vehicle class on a date range | ✅ built | Ticket 43. `POST /providers/{id}/waitlist_entries`, `GET /waitlist_entries`, `DELETE /waitlist_entries/{id}`. Verified: three users queue at positions 1–2–3, joining a class that is *not* full is refused 409, a second place in one queue is 409, leaving closes the gap |
 | 4a | Notify waitlisted users | ◐ substrate built, nothing emits | Ticket 42 built the notification records and the read surface (`GET /notifications`, `POST /notifications/{id}/read`), verified end to end. **Nothing produces one yet** — the waitlist is the first producer, so this clause is not met until ticket 44 |
 | 4b | Strict FIFO release on cancellation | ❌ not built | Ticket 44 |
 | 4c | Time-limited exclusive claim window | ❌ not built | Ticket 45 |

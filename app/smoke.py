@@ -708,6 +708,80 @@ def main() -> int:
         s.check("a vehicle with a window cannot be removed", 409, "DELETE",
                 f"/vehicles/{vehicle}", token=admin)
 
+        print("\n## the waitlist")
+        # On a class of its own with exactly one car, so "full" is unambiguous and
+        # the seeded fleet keeps the capacity it is documented as having.
+        wmade = s.check("a class to fill", 201, "POST",
+                        f"/providers/{provider}/vehicle_classes",
+                        {"name": f"Smoke Queue {os.getpid()}",
+                         "description": "One car, to be filled."}, token=admin)
+        q_class = wmade["id"] if isinstance(wmade, dict) else None
+        wcar = s.check("its one car", 201, "POST",
+                       f"/vehicle_classes/{q_class}/vehicles",
+                       {"plate": f"SMOKE-Q{os.getpid()}"}, token=admin)
+        q_car = wcar["id"] if isinstance(wcar, dict) else None
+        q_body = {"vehicle_class_id": q_class, "start_date": d(93), "end_date": d(94)}
+        # Not full yet, so joining must be refused rather than accepted.
+        s.check("joining before the class is full", 409, "POST",
+                f"/providers/{provider}/waitlist_entries", q_body, token=user_a)
+        # A user of its own: user_b is already at the three-active cap by now, and
+        # borrowing them would fail for a reason unrelated to what is being tested.
+        filler = s.register("fill")[1]
+        s.booking_check("fill it", 201, f"/providers/{provider}/bookings",
+                        {**q_body, "pickup_branch_id": branch}, filler)
+        q1, q2 = s.register("q1")[1], s.register("q2")[1]
+        e1 = s.check("first joins the queue", 201, "POST",
+                     f"/providers/{provider}/waitlist_entries", q_body, token=q1)
+        e2 = s.check("second joins", 201, "POST",
+                     f"/providers/{provider}/waitlist_entries", q_body, token=q2)
+        for label, payload, expected in (("first is position 1", e1, 1),
+                                         ("second is position 2", e2, 2)):
+            got = payload.get("position") if isinstance(payload, dict) else None
+            if got == expected:
+                s.passed += 1
+                print(f"  pass  {label}  [{got}]")
+            else:
+                s.failed.append(label)
+                print(f"  FAIL  {label}  got {got}")
+        s.check("joining the same queue twice", 409, "POST",
+                f"/providers/{provider}/waitlist_entries", q_body, token=q1)
+        s.check("an admin joining", 403, "POST",
+                f"/providers/{provider}/waitlist_entries", q_body, token=admin)
+        s.check("a past-dated range", 422, "POST",
+                f"/providers/{provider}/waitlist_entries",
+                {**q_body, "start_date": d(-9), "end_date": d(-8)}, token=q1)
+        s.check("an unexpected field", 422, "POST",
+                f"/providers/{provider}/waitlist_entries",
+                {**q_body, "surprise": "x"}, token=q1)
+        s.check("anonymous joining", 401, "POST",
+                f"/providers/{provider}/waitlist_entries", q_body)
+        s.check("listing my own places", 200, "GET", "/waitlist_entries", token=q1)
+        s.check("a user in no queue", 200, "GET", "/waitlist_entries", token=user_a)
+        s.check("anonymous listing", 401, "GET", "/waitlist_entries")
+        # `id`, not `isinstance`: a 409 body is a dict too, so testing the type
+        # would walk straight into a KeyError on the error payload.
+        if isinstance(e1, dict) and "id" in e1 and isinstance(e2, dict) and "id" in e2:
+            s.check("another user's entry", 404, "DELETE",
+                    f"/waitlist_entries/{e2['id']}", token=q1)
+            s.check("an admin reaching for one", 404, "DELETE",
+                    f"/waitlist_entries/{e2['id']}", token=admin)
+            s.check("the first leaves", 204, "DELETE",
+                    f"/waitlist_entries/{e1['id']}", token=q1)
+            # Leaving must close the gap, with no renumbering to go wrong.
+            _, after = s.call("GET", "/waitlist_entries", token=q2)
+            moved = (isinstance(after, list) and after
+                     and after[0]["position"] == 1)
+            if moved:
+                s.passed += 1
+                print("  pass  the second moves up to position 1  [1]")
+            else:
+                s.failed.append("the second moves up to position 1")
+                print(f"  FAIL  the second moves up to position 1  {after}")
+            s.check("the second leaves too", 204, "DELETE",
+                    f"/waitlist_entries/{e2['id']}", token=q2)
+        s.check("an over-large entry id", 422, "DELETE",
+                "/waitlist_entries/99999999999", token=q1)
+
         print("\n## notifications")
         # The seeded fixture gives the demo user two, one of them unread -- nothing
         # in the service emits one yet, so without those rows there would be
@@ -815,6 +889,10 @@ def main() -> int:
                 f"/vehicles/{solo_car}", token=admin)
         s.check("remove the maintenance-test class", 204, "DELETE",
                 f"/vehicle_classes/{solo_class}", token=admin)
+        s.check("remove the queue-test car", 204, "DELETE", f"/vehicles/{q_car}",
+                token=admin)
+        s.check("remove the queue-test class", 204, "DELETE",
+                f"/vehicle_classes/{q_class}", token=admin)
 
     except Precondition as error:
         print(f"\nPRECONDITION NOT MET: {error}")
