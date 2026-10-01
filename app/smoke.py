@@ -708,6 +708,71 @@ def main() -> int:
         s.check("a vehicle with a window cannot be removed", 409, "DELETE",
                 f"/vehicles/{vehicle}", token=admin)
 
+        print("\n## notifications")
+        # The seeded fixture gives the demo user two, one of them unread -- nothing
+        # in the service emits one yet, so without those rows there would be
+        # nothing here to read.
+        _, mine = s.call("GET", "/notifications", token=demo)
+        s.check("list my own notifications", 200, "GET", "/notifications", token=demo)
+        if isinstance(mine, list) and len(mine) >= 2:
+            newest_first = all(
+                mine[i]["created_at"] >= mine[i + 1]["created_at"]
+                for i in range(len(mine) - 1)
+            )
+            if newest_first:
+                s.passed += 1
+                print(f"  pass  newest first  [{len(mine)} rows]")
+            else:
+                s.failed.append("newest first")
+                print("  FAIL  newest first")
+        else:
+            s.skip("newest first", "the fixture has fewer than two notifications")
+        # A brand-new user has none, and gets a list rather than an error.
+        _, empty = s.call("GET", "/notifications", token=user_a)
+        if empty == []:
+            s.passed += 1
+            print("  pass  a user with none gets an empty list  [[]]")
+        else:
+            s.failed.append("a user with none gets an empty list")
+            print(f"  FAIL  a user with none gets an empty list  {empty}")
+        # An admin sees their own, never everyone's -- the one collection in this
+        # service that does not widen by role.
+        _, as_admin = s.call("GET", "/notifications", token=admin)
+        if as_admin == []:
+            s.passed += 1
+            print("  pass  an admin sees only their own  [[]]")
+        else:
+            s.failed.append("an admin sees only their own")
+            print(f"  FAIL  an admin sees only their own  {as_admin}")
+        if isinstance(mine, list) and mine:
+            target = mine[0]["id"]
+            s.check("mark one read", 200, "POST",
+                    f"/notifications/{target}/read", token=demo)
+            s.check("mark it read again (idempotent)", 200, "POST",
+                    f"/notifications/{target}/read", token=demo)
+            s.check("another user marks it read", 404, "POST",
+                    f"/notifications/{target}/read", token=user_a)
+            s.check("an admin marks it read", 404, "POST",
+                    f"/notifications/{target}/read", token=admin)
+        s.check("a notification that does not exist", 404, "POST",
+                "/notifications/99999999/read", token=demo)
+        s.check("an over-large notification id", 422, "POST",
+                "/notifications/99999999999/read", token=demo)
+        s.check("anonymous listing", 401, "GET", "/notifications")
+        s.check("anonymous marking read", 401, "POST", "/notifications/1/read")
+        # No route creates one. 405 means the path exists for other methods, 404
+        # that it does not exist at all; either proves there is no way in.
+        for method, path in (("POST", "/notifications"), ("PUT", "/notifications"),
+                             ("DELETE", "/notifications/1")):
+            got = s.call(method, path,
+                         {"kind": "x", "message": "injected"}, token=demo)[0]
+            if got in (404, 405):
+                s.passed += 1
+                print(f"  pass  {method} {path} is not a route  [{got}]")
+            else:
+                s.failed.append(f"{method} {path} is not a route")
+                print(f"  FAIL  {method} {path} answered {got}")
+
         print("\n## quotation")
         s.check("quote a rental", 200, "POST", f"/providers/{provider}/quotations",
                 booking(10, 12), token=user_a)
@@ -776,9 +841,12 @@ def main() -> int:
             print(f"  {label}")
         return 1
     print(
-        "\nAll checks passed. Every booking and review this run created has been "
-        "removed, so it can be run again without re-seeding. The throwaway "
-        "`smoke-*@example.com` accounts do remain; re-seed to clear them."
+        "\nAll checks passed. Every booking, review, window, vehicle and class this "
+        "run created has been removed, so it can be run again without re-seeding.\n"
+        "Two things it does leave behind, neither of which affects a re-run: the "
+        "throwaway `smoke-*@example.com` accounts, and one seeded notification "
+        "marked read (there is no route to mark one unread, by design). Re-seed to "
+        "clear both."
     )
     return 0
 

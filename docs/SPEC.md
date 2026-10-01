@@ -33,6 +33,9 @@ than a whole business. Since ticket 25 a booking names one.
 - **Booking** — user, provider, vehicle class, `start_date`, `end_date` (both `DATE`).
 - **Blackout Window** — vehicle, `start_date`, `end_date` (both `DATE`, inclusive). A
   period one car is off the road for servicing. No two on one vehicle may overlap.
+- **Notification** — user, kind, message, `created_at`, `read_at` (nullable). A record the
+  system writes for one user to read. The only table whose temporal columns are instants
+  rather than dates.
 - **Review** — booking (unique), rating 1–5, comment.
 
 ## Dates
@@ -41,6 +44,31 @@ Dates are `DATE` columns with no time
  component. "Today" is computed in the configured
 business timezone (`BUSINESS_TIMEZONE`, `Asia/Bangkok`) via a single `today()` helper.
 No rule may call `date.today()` directly.
+
+### Dates versus instants
+
+Every domain period in this service is a plain `DATE`: rental periods, blackout windows, and
+every rule that compares against "now". A rental has no pickup hour, and storing an instant
+would invite a timezone conversion to shift the day.
+
+**Notifications are the exception, and the first one.** When a notification was created and
+when it was read are records of a moment, not domain dates — rounding them to a day would
+make two notifications from one afternoon indistinguishable and unorderable. They are
+`timestamptz`.
+
+`app/core/clock.py` owns both: `today()` for a domain date, `now()` for an instant. Calling
+`date.today()` or `datetime.now()` anywhere else is a bug, for the same reason in both cases —
+the system clock's timezone is not the business timezone, and the service runs seven hours
+from UTC.
+
+Instants are stored and returned in UTC, serialised as ISO-8601 with a `Z`
+(`2026-10-01T18:39:03.655622Z`). The business timezone governs which *day* a rule thinks it
+is, not how an absolute moment is rendered; converting the rendering would add ambiguity
+without adding information.
+
+One module is exempt and says so: access tokens read UTC directly, because a JWT's `iat` and
+`exp` are defined by the standard as seconds since the Unix epoch. A token's lifetime is not a
+domain rule and has no business day.
 
 ## Rules
 
@@ -169,6 +197,49 @@ No rule may call `date.today()` directly.
 - Deleting a booking cascades to its review at the database level. Deleting a review
   leaves the booking intact and reviewable again.
 - A retired provider is still reviewable by users who booked it.
+
+### Notifications
+
+- A notification is a record the system writes for **one** user, who lists their own and
+  marks them read. Records the user polls, not email: SMTP would mean credentials,
+  deliverability and an external dependency the brief never asks for, and none of it can be
+  shown in Postman, which is this project's only demonstration.
+- **No route creates one.** This is a rule, not an omission. If a client could post a
+  notification it could post one to another user, and a record whose provenance is "whoever
+  asked" is not a record of anything. The only writer is `notify()` in
+  `app/notifications/service.py`, called in-process by whichever rule has something to say.
+  The OpenAPI document carries exactly two notification paths: `GET /notifications` and
+  `POST /notifications/{id}/read`.
+- `notify()` **flushes but does not commit.** A notification is almost always part of
+  something larger — a cancellation that frees a car both deletes the booking and tells the
+  next person in the queue — and those must land together or not at all. Committing inside
+  would publish a notification about a transaction that could still roll back, telling
+  someone their car is ready when it is not. Verified: a rolled-back transaction leaves no
+  notification behind, and the flush still assigns an id so the caller can reference it.
+- **Scope never widens for an admin.** Every other collection here shows an admin more:
+  `GET /bookings` returns everyone's. This one does not, because a notification is addressed
+  to a person rather than being business anyone may audit. An admin calling `GET
+  /notifications` receives their own, which in practice is empty, and reaching for another
+  user's by id answers `404` exactly as a registered user's attempt does.
+- Marking read is **idempotent**: a second call answers `200` and leaves the original
+  `read_at` alone, because what it records is when the user *first* saw this and a retried
+  request must not rewrite that. There is no way to mark one unread — that would be a record
+  of nothing.
+- `read_at` is a nullable instant rather than a boolean. It answers strictly more ("has it
+  been read" is `read_at is not None`, exposed as the derived `is_read`), and "when did they
+  see this" is the question anyone debugging a missed notification actually asks. One fact,
+  one column.
+- `kind` is a short string, not a PostgreSQL enum: the set grows every time a feature starts
+  emitting one, and an enum would make each of those a migration for a guarantee nothing
+  needs. `NotificationKind` in the model lists the kinds that exist, and **only** those —
+  naming the waitlist's kinds before the waitlist writes them would be a promise with no
+  code behind it.
+- The recipient foreign key is `ON DELETE CASCADE`, unlike the `RESTRICT` keys elsewhere: a
+  notification means nothing without the person it addresses, so there is no history worth
+  refusing a delete to protect. Verified by deleting a user and finding no orphan.
+- **Nothing in the service emits a notification yet.** The waitlist (tickets 43 to 46) is the
+  first producer. The fixture seeds two so the surface can be demonstrated at all, and they
+  describe facts that are actually true of the fixture rather than invented events.
 
 ### Providers
 
@@ -439,6 +510,19 @@ No rule may call `date.today()` directly.
   so it never conflicts; the car is back on the road immediately and there is no cancelled
   state to inspect.
 
+### Notification surface
+
+- `GET /notifications` — the caller's own, newest first, ordered by `created_at` then `id`,
+  both descending. The id tiebreak is not decoration: two notifications written in one
+  transaction can carry timestamps a microsecond apart, and without it the order would vary
+  between runs. A user with none receives `[]`, never an error.
+- `POST /notifications/{id}/read` — marks it read and returns it. `200`, idempotent.
+- Another user's notification answers `404`, including for an admin. An over-large id answers
+  `422` from the path bound.
+- There is no `GET /notifications/{id}` and no unread count. Neither is asked for, and a
+  client that has the list needs neither.
+- Both routes require authentication; neither has an admin variant.
+
 ### Quotation surface
 
 - `POST /providers/{id}/quotations` — any authenticated caller; unauthenticated is 401.
@@ -568,6 +652,11 @@ the error shape.
 | A registered user on a blackout window write route | 403, whether or not the window exists |
 | Removing a vehicle that has a blackout window | 409 |
 | Cancelling a blackout window | 204, no body |
+| Listing notifications with none | 200, `[]` |
+| Marking a notification read | 200, the notification |
+| Marking an already-read notification read again | 200, `read_at` unchanged |
+| Another user's notification, or an admin reaching for one | 404 |
+| Any attempt to create a notification through the API | 404 or 405 — no such route exists |
 
 ## Seeding and testing
 
@@ -588,6 +677,7 @@ What it creates, and why each piece has to be there:
 | 10 vehicles | Economy 3, SUV 1, Van 2, Classic 1 | a class with no cars refuses every booking; the uneven counts let a demo fill the one-car class in a single request |
 | 2 bookings for `demo` | one ended and one-way, one upcoming and round-trip | one of each shape; the ended one is reviewable, and the review has to attach to a finished rental |
 | 0 reviews | | the demo performs the first one |
+| 2 notifications for `demo` | one read, one unread | nothing in the service emits one yet, so without these `GET /notifications` could only be shown returning `[]` and marking one read could not be shown at all. One of each state, because "newest first" and "has it been read" are only visible when the rows differ. Both describe facts that are **actually true** of this fixture — the ended booking really is waiting for a review — because a fixture asserting something the rest of it contradicts is worse than none |
 
 The ended booking is inserted through the ORM, bypassing the no-past-dates rule, which
 exists to protect users rather than to constrain fixtures.

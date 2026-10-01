@@ -11,6 +11,7 @@ from app.branches.router import router as branches_router
 from app.core.config import get_settings
 from app.core.errors import validation_exception_handler
 from app.health.router import router as health_router
+from app.notifications.router import router as notifications_router
 from app.providers.router import router as providers_router
 from app.reviews.router import router as reviews_router
 from app.vehicle_classes.router import router as vehicle_classes_router
@@ -49,3 +50,4 @@ app.include_router(vehicles_router)
 app.include_router(one_way_routes_router)
 app.include_router(quotations_router)
 app.include_router(blackout_windows_router)
+app.include_router(notifications_router)
