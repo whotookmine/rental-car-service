@@ -116,6 +116,7 @@ aborts startup.
 | `JWT_SECRET_KEY` | *(none — required)* | Signing key for access tokens |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Access token lifetime |
 | `BUSINESS_TIMEZONE` | `Asia/Bangkok` | Timezone that defines the business day |
+| `CLAIM_WINDOW_MINUTES` | `60` | How long a waitlist claim is held for whoever it was offered to. Set to `1` to demonstrate expiry |
 | `ENV` | `local` | Environment name |
 
 Alembic reads `DATABASE_URL` from the same settings object as the app; `alembic.ini`

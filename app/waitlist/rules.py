@@ -5,14 +5,17 @@ one thing: the order people joined, and nothing else. The requirement says stric
 FIFO, which rules out "whoever asks first" and "whoever notices first".
 """
 
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.bookings.rules import measure_room
 from app.core.clock import now, today
+from app.core.config import get_settings
+from app.notifications.models import NotificationKind
+from app.notifications.service import notify
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
 from app.waitlist.models import WaitlistEntry
@@ -46,12 +49,35 @@ def queue_in_order(
     )
 
 
+def _still_in_contention(at: datetime):
+    """SQL for "this entry is still waiting its turn".
+
+    Waiting or holding a live claim. Converted, declined and expired entries are
+    out: they will never be offered anything again, so counting them would tell the
+    person behind them they are further back than they really are.
+    """
+    return or_(
+        WaitlistEntry.offered_at.is_(None),
+        and_(
+            WaitlistEntry.converted_at.is_(None),
+            WaitlistEntry.declined_at.is_(None),
+            WaitlistEntry.claim_expires_at > at,
+        ),
+    )
+
+
 def position_of(db: Session, entry: WaitlistEntry) -> int:
     """Where this entry stands in its queue, 1 being the front.
 
     Counted rather than stored. A stored position would have to be rewritten for
     everyone behind anyone who leaves, and the first missed update would leave two
     people believing they were third. Counting cannot drift.
+
+    Only entries **still in contention** are counted ahead. Once ticket 45 gave an
+    entry a way to be converted, declined or expired, counting those would have told
+    the person behind a converted entry that they were still second when in truth
+    they were next. The same reasoning as leaving a queue: what is ahead of you is
+    whoever can still take the next release.
 
     Note the tuple comparison: an entry ahead is one with an earlier instant, or
     the same instant and a lower id. That is exactly the ordering `queue_in_order`
@@ -66,6 +92,7 @@ def position_of(db: Session, entry: WaitlistEntry) -> int:
             WaitlistEntry.end_date == entry.end_date,
             func.row(WaitlistEntry.created_at, WaitlistEntry.id)
             < func.row(entry.created_at, entry.id),
+            _still_in_contention(now()),
         )
     )
     return (ahead or 0) + 1
@@ -79,6 +106,45 @@ def is_active(entry: WaitlistEntry) -> bool:
     the business timezone, like every other date comparison here.
     """
     return entry.end_date >= today()
+
+
+def claim_is_live(entry: WaitlistEntry, at: datetime) -> bool:
+    """Is this entry's claim still exclusively holding a car?
+
+    Four things have to be true, and the fourth is the one that matters: a claim
+    that has passed its expiry is **not** live, even though nothing has run to mark
+    it so. Expiry is judged every time the question is asked rather than by a
+    background job -- there is no scheduler in this project, and a claim that
+    expired quietly at 3am must not be honoured at 9am because nothing happened in
+    between.
+
+    `at` is passed in rather than read here so that one request measures every claim
+    against one instant. Reading the clock per claim could count the same one as
+    live and dead within a single answer.
+    """
+    return (
+        entry.offered_at is not None
+        and entry.converted_at is None
+        and entry.declined_at is None
+        and entry.claim_expires_at is not None
+        and entry.claim_expires_at > at
+    )
+
+
+def claim_state(entry: WaitlistEntry, at: datetime) -> str:
+    """A one-word description of where this entry stands, for the response.
+
+    Derived from the timestamps every time, never stored. A stored state and the
+    timestamps it was derived from are two facts that can disagree, and the
+    disagreement is always discovered later than it was caused.
+    """
+    if entry.converted_at is not None:
+        return "converted"
+    if entry.declined_at is not None:
+        return "declined"
+    if entry.offered_at is None:
+        return "waiting"
+    return "claimed" if claim_is_live(entry, at) else "expired"
 
 
 def offer_released_capacity(
@@ -137,7 +203,31 @@ def offer_released_capacity(
             # Still nothing for this one. Left completely untouched, so its place
             # in the queue is exactly what it was.
             continue
-        entry.offered_at = now()
+        moment = now()
+        entry.offered_at = moment
+        # Written in the same breath as the offer. An offer without a deadline would
+        # hold a car forever, so the two are never set apart. Duration comes from
+        # configuration: the right value is a business judgement, and a demo needs
+        # to be able to watch one expire.
+        entry.claim_expires_at = moment + timedelta(
+            minutes=get_settings().claim_window_minutes
+        )
+
+        # The first thing in this service that actually writes a notification.
+        # `notify` flushes rather than commits, so this lands with the cancellation
+        # that caused it or not at all -- nobody is told their car is ready on the
+        # strength of a transaction that then rolls back.
+        notify(
+            db,
+            user_id=entry.user_id,
+            kind=NotificationKind.waitlist_offer,
+            message=(
+                f"A {entry.vehicle_class.name} is available from "
+                f"{entry.start_date} to {entry.end_date}. It is held for you until "
+                f"{entry.claim_expires_at:%Y-%m-%d %H:%M %Z}; claim it before then "
+                "or it passes to the next person waiting."
+            ),
+        )
         db.flush()
         return entry
 
@@ -163,7 +253,7 @@ def ensure_class_is_full(
     """
     room = measure_room(db, vehicle_class.id, start_date, end_date)
     if not room.is_full:
-        free = room.available - room.peak_bookings
+        free = room.available - room.peak_occupancy
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(

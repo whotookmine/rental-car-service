@@ -11,6 +11,7 @@ from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User, UserRole
 from app.bookings.models import Booking
 from app.bookings.schemas import validate_rental_period
+from app.core.clock import now
 from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
@@ -152,17 +153,35 @@ _AVAILABILITY_QUERY = text(
         WHERE vc.provider_id = :provider_id
         GROUP BY vc.id, vc.name
     ),
-    daily_bookings AS (
-        SELECT cc.id AS vehicle_class_id, d.day, COUNT(b.id) AS taken
+    daily_occupancy AS (
+        -- Two things occupy a car, not one. A booking does; so does a live waitlist
+        -- claim, because ticket 45 holds released capacity for the person it was
+        -- offered to and that car is then not available to anyone else even though
+        -- it is physically free.
+        --
+        -- This has to agree exactly with `_PEAK_OCCUPANCY_ON_ANY_DAY` in
+        -- `app/bookings/rules.py`. The two are separate SQL because ticket 27 asked
+        -- for availability to be one query rather than one per class, and that is
+        -- worth keeping -- but it means a change to either is a change to both, and
+        -- the agreement is verified by test rather than assumed.
+        SELECT cc.id AS vehicle_class_id, d.day,
+               (SELECT COUNT(*) FROM bookings b
+                 WHERE b.vehicle_class_id = cc.id
+                   AND b.start_date <= d.day AND b.end_date >= d.day)
+             + (SELECT COUNT(*) FROM waitlist_entries w
+                 WHERE w.vehicle_class_id = cc.id
+                   AND w.start_date <= d.day AND w.end_date >= d.day
+                   AND w.offered_at IS NOT NULL
+                   AND w.converted_at IS NULL
+                   AND w.declined_at IS NULL
+                   AND w.claim_expires_at > CAST(:at AS timestamptz))
+               AS taken
         FROM days d
         CROSS JOIN class_capacity cc
-        LEFT JOIN bookings b ON b.vehicle_class_id = cc.id
-            AND b.start_date <= d.day AND b.end_date >= d.day
-        GROUP BY cc.id, d.day
     ),
-    peak_bookings AS (
+    peak_occupancy AS (
         SELECT vehicle_class_id, MAX(taken) AS peak
-        FROM daily_bookings
+        FROM daily_occupancy
         GROUP BY vehicle_class_id
     )
     SELECT
@@ -171,7 +190,7 @@ _AVAILABILITY_QUERY = text(
         GREATEST(0, CAST(cc.cap AS integer) - CAST(COALESCE(pb.peak, 0) AS integer))
                        AS free_count
     FROM class_capacity cc
-    LEFT JOIN peak_bookings pb ON pb.vehicle_class_id = cc.id
+    LEFT JOIN peak_occupancy pb ON pb.vehicle_class_id = cc.id
     ORDER BY cc.id
     """
 )
@@ -223,6 +242,9 @@ def get_availability(
             "provider_id": provider.id,
             "start_date": start_date,
             "end_date": end_date,
+            # One instant for the whole measurement, so a claim cannot read as live
+            # for one class and expired for the next in the same answer.
+            "at": now(),
         },
     ).fetchall()
 
