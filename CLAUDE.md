@@ -12,6 +12,7 @@ afterwards. Backend only; there is no frontend.
 | `docs/SPEC.md` | The agreed ruleset: entities, date semantics, validation, status codes. | Binding. If the code and this disagree, one of them is a bug. |
 | `docs/adr/` | Decisions that are expensive to reverse, each with its reasoning. | Binding. Do not quietly work around an ADR. |
 | `.scratch/rental-car-service/spec.md` | The same design in problem-and-user-story form. | Context, not law. |
+| `.scratch/rental-car-service/HANDOVER.md` | Where the project stood when Time finished the waitlist, which tickets are left, and the traps that have already cost us time. | Context, not law. Correct it rather than routing around it. |
 
 This brief is a re-skin of a common appointment-booking exercise. Vocabulary from that
 lineage — appointments, hospitals, vacancies — must never appear in this codebase.
