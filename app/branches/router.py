@@ -9,7 +9,7 @@ from app.auth.dependencies import get_current_user, require_admin
 from app.auth.models import User
 from app.branches.dependencies import get_branch_or_404
 from app.branches.models import Branch
-from app.branches.schemas import BranchCreate, BranchRead, BranchUpdate
+from app.branches.schemas import BranchCreate, BranchRead, BranchUpdate, DeliveryRadiusSet
 from app.db.session import get_db
 from app.providers.dependencies import get_provider_or_404
 from app.providers.models import Provider
@@ -106,6 +106,42 @@ def update_branch(
     db.commit()
     db.refresh(branch)
     return BranchRead.model_validate(branch)
+
+
+@router.put(
+    "/branches/{branch_id}/delivery-radius",
+    response_model=BranchRead,
+    summary="Set delivery radius on a branch (admin only)",
+    description="Sets how far (in km) this branch will deliver. A radius of zero is valid.",
+    responses={404: {"description": "Branch not found."}},
+)
+def set_delivery_radius(
+    payload: DeliveryRadiusSet,
+    _admin: User = Depends(require_admin),
+    branch: Branch = Depends(get_branch_or_404),
+    db: Session = Depends(get_db),
+) -> BranchRead:
+    branch.delivery_radius_km = payload.kilometres
+    db.commit()
+    db.refresh(branch)
+    return BranchRead.model_validate(branch)
+
+
+@router.delete(
+    "/branches/{branch_id}/delivery-radius",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Clear delivery radius on a branch (admin only)",
+    description="Withdraws delivery from this branch. Existing bookings that used delivery are not affected.",
+    responses={404: {"description": "Branch not found."}},
+)
+def clear_delivery_radius(
+    _admin: User = Depends(require_admin),
+    branch: Branch = Depends(get_branch_or_404),
+    db: Session = Depends(get_db),
+) -> Response:
+    branch.delivery_radius_km = None
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete(

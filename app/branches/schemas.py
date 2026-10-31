@@ -70,6 +70,12 @@ class BranchUpdate(BaseModel):
         return _validate_telephone(value)
 
 
+class DeliveryRadiusSet(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kilometres: int = Field(ge=0)
+
+
 class BranchRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -78,3 +84,4 @@ class BranchRead(BaseModel):
     name: str
     address: str
     telephone: str
+    delivery_radius_km: int | None

@@ -580,6 +580,22 @@ field, write one.
   provider using the provider's address and telephone, so no provider was left without one.
 - Removing a branch cascades to its distances (ON DELETE CASCADE on `branch_distances`).
 
+### Delivery radius
+
+- A branch may carry a delivery radius in kilometres, recording how far that branch will
+  bring a car to a customer. A branch with no radius set does not offer delivery at all;
+  this is distinct from a radius of zero.
+- Set with `PUT /branches/{id}/delivery-radius` (body: `{"kilometres": N}`, N ≥ 0).
+  Cleared with `DELETE /branches/{id}/delivery-radius`, which answers 204 with no body.
+  Both routes are admin-only and answer 403 for a registered user.
+- A negative radius is refused with 422.
+- Any authenticated caller can see the radius via the existing `GET /branches/{id}` and
+  `GET /providers/{id}/branches` responses; the field `delivery_radius_km` is null when
+  no radius is set.
+- Clearing the radius leaves existing bookings that used delivery untouched.
+- Migration `abc1def23456` added the nullable `delivery_radius_km` column; existing rows
+  default to null (no delivery).
+
 ### Branch distances
 
 - An admin records the distance in kilometres between two of the same provider's branches.

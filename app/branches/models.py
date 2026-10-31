@@ -33,6 +33,7 @@ class Branch(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     address: Mapped[str] = mapped_column(String(500), nullable=False)
     telephone: Mapped[str] = mapped_column(String(40), nullable=False)
+    delivery_radius_km: Mapped[int | None] = mapped_column(nullable=True, default=None)
 
     provider: Mapped[Provider] = relationship(lazy="joined")
 
