@@ -7,16 +7,28 @@ kilometre: the requirement says "distance-tiered", so a band of distances shares
 
 **Owner:** Garfield
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Delivery tiers are configuration — a set of distance bands, each with a charge —
+- [x] Delivery tiers are configuration — a set of distance bands, each with a charge —
       rather than numbers buried in code, and are stated in `docs/SPEC.md`
-- [ ] A quotation for a booking with delivery carries a delivery line at the tier its
+- [x] A quotation for a booking with delivery carries a delivery line at the tier its
       distance falls in
-- [ ] Tier boundaries are unambiguous and the boundary behaviour is stated: a distance
+- [x] Tier boundaries are unambiguous and the boundary behaviour is stated: a distance
       exactly on a boundary must fall in exactly one tier, and which one is written down
-- [ ] A booking without delivery carries no delivery line at all
-- [ ] A distance beyond every tier is refused rather than silently charged at the top tier
-- [ ] The charge covers both delivery and collection, or charges each separately — decide
+- [x] A booking without delivery carries no delivery line at all
+- [x] A distance beyond every tier is refused rather than silently charged at the top tier
+- [x] The charge covers both delivery and collection, or charges each separately — decide
       which, state it, and make the itemisation say so
-- [ ] The figure on the quotation matches what the booking is created with
+- [x] The figure on the quotation matches what the booking is created with
+
+## Notes
+
+- Tiers configured via `DELIVERY_TIERS` env var (JSON array). Default: 0–10km=200,
+  11–20km=400, 21–50km=800 (THB). Stated in SPEC.md.
+- Upper bound is **inclusive**: `distance <= tier.max_km`. First matching tier wins
+  (tiers sorted ascending). Beyond last tier → 409.
+- Charge covers delivery AND collection as one line ("Delivery and collection (up to N km)").
+- `delivery_distance_km` and `delivery_address` added to `QuotationRequest` (same pair
+  rule as booking: both or neither).
+- No migration needed — all config + quotation logic.
+- `DeliveryTier` model lives in `app/core/config.py` alongside the settings that use it.

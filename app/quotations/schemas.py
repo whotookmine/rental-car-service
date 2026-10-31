@@ -18,11 +18,22 @@ class QuotationRequest(BaseModel):
     start_date: date
     end_date: date
 
+    # Optional delivery. Mirrors booking creation: distance and address must
+    # come as a pair or both be omitted. Only distance is needed for pricing.
+    delivery_distance_km: int | None = Field(default=None, ge=0)
+    delivery_address: str | None = Field(default=None, min_length=1, max_length=500)
+
     @model_validator(mode="after")
     def _validate_period(self) -> "QuotationRequest":
         validate_rental_period(self.start_date, self.end_date)
         if self.start_date < today():
             raise ValueError("start_date must not be in the past")
+        addr = self.delivery_address
+        dist = self.delivery_distance_km
+        if (addr is None) != (dist is None):
+            raise ValueError(
+                "delivery_address and delivery_distance_km must both be provided or both omitted"
+            )
         return self
 
 

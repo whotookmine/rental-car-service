@@ -760,6 +760,21 @@ field, write one.
 - For a one-way rental (different drop-off branch), a second **relocation line** is added:
   `distance_km × relocation_rate_per_km`. The rate is configurable via `RELOCATION_RATE_PER_KM`
   (default **THB 50.00/km**). A same-branch rental carries no relocation line.
+- When `delivery_address` and `delivery_distance_km` are both provided, a **delivery and
+  collection line** is added. The charge is determined by the tier the distance falls in.
+  Tiers are configurable via `DELIVERY_TIERS` (JSON array, each entry `{"max_km": N,
+  "charge": "X.XX"}`). Default tiers (THB):
+
+  | Distance (km) | Charge |
+  |---|---|
+  | 0 – 10 | 200.00 |
+  | 11 – 20 | 400.00 |
+  | 21 – 50 | 800.00 |
+
+  The upper bound of each tier is **inclusive**: a distance exactly equal to `max_km`
+  falls in that tier. A distance beyond every tier is refused with 409 (not silently
+  charged at the top tier). The charge covers both delivery and collection as one line.
+  Omitting delivery fields means no delivery line.
 - A vehicle class with no `daily_rate` set answers 409 ("unpriced").
 - A quotation reserves nothing; calling it twice with the same inputs returns the same
   result.

@@ -5,12 +5,26 @@ value raises at import time, so the service fails loudly at startup rather than
 serving requests with a half-configured runtime.
 """
 
+import json
 from decimal import Decimal
 from functools import lru_cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class DeliveryTier(BaseModel):
+    """One distance band in the delivery charge table.
+
+    `max_km` is the inclusive upper bound. A distance exactly on a boundary
+    falls in the tier whose `max_km` equals it (the first tier that covers it
+    when tiers are sorted ascending by `max_km`). A distance beyond every tier
+    is refused rather than charged at the top tier.
+    """
+
+    max_km: int
+    charge: Decimal
 
 # RFC 7518 section 3.2, for HS256.
 MIN_JWT_SECRET_KEY_BYTES = 32
@@ -59,6 +73,21 @@ class Settings(BaseSettings):
     relocation_rate_per_km: Decimal = Field(
         default=Decimal("50.00"), alias="RELOCATION_RATE_PER_KM"
     )
+
+    # Delivery charge tiers as a JSON array, sorted ascending by max_km.
+    # Each entry: {"max_km": N, "charge": "X.XX"}. Upper bound is inclusive.
+    # A distance beyond the last tier is refused (409). Stated in SPEC.md.
+    # Default: 0-10km=200, 11-20km=400, 21-50km=800 (THB).
+    delivery_tiers_json: str = Field(
+        default='[{"max_km":10,"charge":"200.00"},{"max_km":20,"charge":"400.00"},{"max_km":50,"charge":"800.00"}]',
+        alias="DELIVERY_TIERS",
+    )
+
+    @property
+    def delivery_tiers(self) -> list[DeliveryTier]:
+        raw = json.loads(self.delivery_tiers_json)
+        tiers = [DeliveryTier(**t) for t in raw]
+        return sorted(tiers, key=lambda t: t.max_km)
 
     # Environment name: local | development | production.
     env: str = Field(default="local", alias="ENV")
