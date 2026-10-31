@@ -596,6 +596,26 @@ field, write one.
 - Migration `abc1def23456` added the nullable `delivery_radius_km` column; existing rows
   default to null (no delivery).
 
+### Delivery on a booking
+
+- A booking may carry a `delivery_address` (text) and `delivery_distance_km` (integer,
+  caller-supplied). Both must be provided together or both omitted; providing one without
+  the other is refused with 422.
+- Omitting both is the ordinary case: the customer collects from the branch.
+- A blank delivery address is refused with 422. A negative `delivery_distance_km` is refused
+  with 422 (`ge=0` on the schema).
+- When delivery is requested, the pickup branch must have a delivery radius set; a branch
+  with no radius is refused with 409. A distance greater than the branch radius is refused
+  with 409, naming the radius so the caller knows by how much. A distance exactly equal to
+  the radius is accepted (inclusive boundary).
+- A booking may also carry a `collection_address`. Null means the car is collected from the
+  same address it was delivered to. `collection_address` without `delivery_address` is
+  refused with 422.
+- All three fields are returned on every booking response (`null` when not set).
+- Migration `bcd2ef34567a` added the three nullable columns to `bookings`. It is a merge
+  migration combining the delivery-radius chain (ticket 36) and the teammate's waitlist
+  chain (tickets 39–45), both of which branched from `1228c9d212a5`.
+
 ### Branch distances
 
 - An admin records the distance in kilometres between two of the same provider's branches.
@@ -737,6 +757,9 @@ field, write one.
   (a `Money` object). The rental line is `daily_rate × rental_period_days`, where days
   are counted inclusively. The total is the sum of all lines, rounded once using
   `round_amount()` from `app/core/money.py`.
+- For a one-way rental (different drop-off branch), a second **relocation line** is added:
+  `distance_km × relocation_rate_per_km`. The rate is configurable via `RELOCATION_RATE_PER_KM`
+  (default **THB 50.00/km**). A same-branch rental carries no relocation line.
 - A vehicle class with no `daily_rate` set answers 409 ("unpriced").
 - A quotation reserves nothing; calling it twice with the same inputs returns the same
   result.

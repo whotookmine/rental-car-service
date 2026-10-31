@@ -8,7 +8,7 @@ carries one. See `CONTEXT.md`.
 
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey
+from sqlalchemy import Date, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.branches.models import Branch
@@ -68,6 +68,19 @@ class Booking(Base):
     # storing an instant would invite timezone conversion to shift the day.
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Optional delivery. Null means the customer collects from the branch (ordinary
+    # case). When set, both address and distance must be present together; the
+    # distance is supplied by the caller against admin-recorded branch radii rather
+    # than resolved from the address text. collection_address is null when the car
+    # is collected from the same address it was delivered to.
+    delivery_address: Mapped[str | None] = mapped_column(
+        String(500), nullable=True, default=None
+    )
+    delivery_distance_km: Mapped[int | None] = mapped_column(nullable=True, default=None)
+    collection_address: Mapped[str | None] = mapped_column(
+        String(500), nullable=True, default=None
+    )
 
     # Joined eagerly: every route that returns a booking reports who it is with,
     # so a lazy load would mean one extra query per booking in a list.

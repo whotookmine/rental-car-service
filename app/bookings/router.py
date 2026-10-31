@@ -1,6 +1,6 @@
 """Bookings. Creation is nested under the provider a booking is made with."""
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from sqlalchemy import select
@@ -87,6 +87,23 @@ def create_booking(
         else:
             dropoff_branch = None  # same branch = round-trip; store null
 
+    # Delivery validation. Both fields arrive together (schema enforces the pair).
+    # The branch radius check is state, not shape, so it is a 409 here.
+    if payload.delivery_address is not None:
+        if pickup_branch.delivery_radius_km is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The pickup branch does not offer delivery.",
+            )
+        if payload.delivery_distance_km > pickup_branch.delivery_radius_km:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Delivery distance {payload.delivery_distance_km} km exceeds "
+                    f"the branch radius of {pickup_branch.delivery_radius_km} km."
+                ),
+            )
+
     # The caller's own limit first, then the world's. It is the one they control
     # entirely -- they can free a slot by deleting a booking of their own -- and
     # checking it first skips the per-day capacity query for a request that was
@@ -108,6 +125,9 @@ def create_booking(
         dropoff_branch_id=dropoff_branch.id if dropoff_branch else None,
         start_date=payload.start_date,
         end_date=payload.end_date,
+        delivery_address=payload.delivery_address,
+        delivery_distance_km=payload.delivery_distance_km,
+        collection_address=payload.collection_address,
     )
     db.add(booking)
     db.commit()

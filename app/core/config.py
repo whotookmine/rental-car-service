@@ -5,6 +5,7 @@ value raises at import time, so the service fails loudly at startup rather than
 serving requests with a half-configured runtime.
 """
 
+from decimal import Decimal
 from functools import lru_cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -52,6 +53,11 @@ class Settings(BaseSettings):
     # so the offer could never be taken and the queue would drain itself silently.
     claim_window_minutes: int = Field(
         default=60, alias="CLAIM_WINDOW_MINUTES", gt=0
+    )
+
+    # Rate charged per kilometre for one-way relocation. Stated in SPEC.md.
+    relocation_rate_per_km: Decimal = Field(
+        default=Decimal("50.00"), alias="RELOCATION_RATE_PER_KM"
     )
 
     # Environment name: local | development | production.

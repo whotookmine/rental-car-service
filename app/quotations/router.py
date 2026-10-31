@@ -7,12 +7,15 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
+from sqlalchemy import select
+
 from app.bookings.rules import (
     ensure_one_way_route_enabled,
     resolve_branch_for_provider,
     resolve_vehicle_class_for_provider,
 )
 from app.bookings.schemas import rental_period_days
+from app.branch_distances.models import BranchDistance
 from app.core.config import get_settings
 from app.core.money import Money, round_amount
 from app.db.session import get_db
@@ -55,12 +58,15 @@ def create_quotation(
     )
     pickup_branch = resolve_branch_for_provider(db, provider, payload.pickup_branch_id)
 
+    is_one_way = False
+    dropoff_branch = None
     if payload.dropoff_branch_id is not None:
         dropoff_branch = resolve_branch_for_provider(
             db, provider, payload.dropoff_branch_id
         )
         if dropoff_branch.id != pickup_branch.id:
             ensure_one_way_route_enabled(db, pickup_branch, dropoff_branch)
+            is_one_way = True
 
     if vehicle_class.daily_rate is None:
         raise HTTPException(
@@ -71,7 +77,8 @@ def create_quotation(
             ),
         )
 
-    currency = get_settings().currency
+    settings = get_settings()
+    currency = settings.currency
     days = rental_period_days(payload.start_date, payload.end_date)
     rental_amount = vehicle_class.daily_rate * Decimal(days)
 
@@ -85,6 +92,35 @@ def create_quotation(
             amount=Money(amount=rental_amount, currency=currency),
         )
     ]
+
+    if is_one_way and dropoff_branch is not None:
+        a = min(pickup_branch.id, dropoff_branch.id)
+        b = max(pickup_branch.id, dropoff_branch.id)
+        distance_row = db.scalar(
+            select(BranchDistance).where(
+                BranchDistance.from_branch_id == a,
+                BranchDistance.to_branch_id == b,
+            )
+        )
+        # Ticket 31 refuses to enable a one-way route without a recorded distance,
+        # so distance_row is always present here. This is verified rather than assumed.
+        if distance_row is None:  # pragma: no cover — invariant from ticket 31
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No distance recorded between these branches; cannot compute relocation fee.",
+            )
+        rate = settings.relocation_rate_per_km
+        relocation_amount = round_amount(Decimal(str(distance_row.distance_km)) * rate)
+        lines.append(
+            QuotationLine(
+                description=(
+                    f"Relocation fee "
+                    f"({distance_row.distance_km:.1f} km "
+                    f"\u00d7 {currency} {rate}/km)"
+                ),
+                amount=Money(amount=relocation_amount, currency=currency),
+            )
+        )
 
     total = round_amount(sum(line.amount.amount for line in lines))
 

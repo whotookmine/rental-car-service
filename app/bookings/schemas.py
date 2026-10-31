@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.branches.schemas import BranchRead
 from app.core.clock import today
@@ -58,6 +58,23 @@ class BookingCreate(BaseModel):
     start_date: date
     end_date: date
 
+    # Optional delivery. Both fields must be provided together or both omitted.
+    # The distance is caller-supplied against admin-recorded branch radii.
+    delivery_address: str | None = Field(default=None, min_length=1, max_length=500)
+    delivery_distance_km: int | None = Field(default=None, ge=0)
+    # Null means collected from the same address as delivery.
+    collection_address: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @field_validator("delivery_address", "collection_address", mode="before")
+    @classmethod
+    def _strip_address(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("must not be blank")
+        return stripped
+
     @model_validator(mode="after")
     def _validate_period_for_creation(self) -> "BookingCreate":
         validate_rental_period(self.start_date, self.end_date)
@@ -67,6 +84,20 @@ class BookingCreate(BaseModel):
         # configured business timezone, never the system clock.
         if self.start_date < today():
             raise ValueError("start_date must not be in the past")
+
+        # Delivery address and distance must come as a pair.
+        addr = self.delivery_address
+        dist = self.delivery_distance_km
+        if (addr is None) != (dist is None):
+            raise ValueError(
+                "delivery_address and delivery_distance_km must both be provided or both omitted"
+            )
+
+        # Collection address only makes sense when delivery is requested.
+        if self.collection_address is not None and addr is None:
+            raise ValueError(
+                "collection_address may only be set when delivery_address is also provided"
+            )
 
         return self
 
@@ -124,3 +155,8 @@ class BookingRead(BaseModel):
 
     # Null for round-trip bookings; nested when a drop-off branch was named.
     dropoff_branch: BranchRead | None = None
+
+    delivery_address: str | None = None
+    delivery_distance_km: int | None = None
+    # Null means collected from the same address as delivery.
+    collection_address: str | None = None
