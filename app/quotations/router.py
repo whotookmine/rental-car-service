@@ -122,6 +122,30 @@ def create_quotation(
             )
         )
 
+    if payload.delivery_distance_km is not None:
+        tiers = settings.delivery_tiers
+        matched = next(
+            (t for t in tiers if payload.delivery_distance_km <= t.max_km), None
+        )
+        if matched is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Delivery distance {payload.delivery_distance_km} km exceeds "
+                    f"the maximum covered by any delivery tier "
+                    f"({tiers[-1].max_km} km)."
+                ),
+            )
+        lines.append(
+            QuotationLine(
+                description=(
+                    f"Delivery and collection "
+                    f"(up to {matched.max_km} km)"
+                ),
+                amount=Money(amount=round_amount(matched.charge), currency=currency),
+            )
+        )
+
     total = round_amount(sum(line.amount.amount for line in lines))
 
     return QuotationRead(
