@@ -1,0 +1,1229 @@
+{
+  "info": {
+    "_postman_id": "rental-car-service-round-1",
+    "name": "Rental Car Service — Round 1",
+    "description": "Covers the full round-one API surface: authentication, provider browsing, booking lifecycle, reviews, and admin oversight. Every negative case listed in the brief is explicit.\n\nBefore running:\n1. Start the API and database (`docker compose up -d && uv run alembic upgrade head && uv run uvicorn app.main:app --reload`)\n2. Seed the database (`uv run python -m app.seed`)\n3. Run **00 — Setup** first — it populates every collection variable the later folders depend on.\n\nAll dates are computed by a collection-level pre-request script and are never hard-coded, so the collection does not go stale.\n\nTicket 49 extends this collection to the round-two surface (vehicle classes, branches, one-way rentals, quotations, blackout windows, notifications, waitlist). This collection covers round one only.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "base_url",             "value": "http://localhost:8000", "type": "string"},
+    {"key": "admin_token",          "value": ""},
+    {"key": "demo_token",           "value": ""},
+    {"key": "fresh_token",          "value": ""},
+    {"key": "provider_id",          "value": "", "description": "Fast Wheels (active)"},
+    {"key": "provider_city_id",     "value": "", "description": "City Rentals (active)"},
+    {"key": "provider_budget_id",   "value": "", "description": "Budget Drive (active)"},
+    {"key": "provider_retired_id",  "value": "", "description": "Old Timer Cars (retired)"},
+    {"key": "vc_economy_id",        "value": "", "description": "Economy class under Fast Wheels"},
+    {"key": "branch_siam_id",       "value": "", "description": "Siam branch under Fast Wheels"},
+    {"key": "booking_id",           "value": ""},
+    {"key": "booking_id_2",         "value": ""},
+    {"key": "ended_booking_id",     "value": "", "description": "Demo user's seeded ended booking"},
+    {"key": "upcoming_booking_id",  "value": "", "description": "Demo user's seeded upcoming booking"},
+    {"key": "review_id",            "value": ""},
+    {"key": "new_provider_id",      "value": ""},
+    {"key": "today",                "value": ""},
+    {"key": "yesterday",            "value": ""},
+    {"key": "tomorrow",             "value": ""},
+    {"key": "in_7",                 "value": ""},
+    {"key": "in_10",                "value": ""},
+    {"key": "in_15",                "value": ""},
+    {"key": "in_20",                "value": ""},
+    {"key": "in_30",                "value": ""},
+    {"key": "in_31",                "value": ""},
+    {"key": "in_32",                "value": ""}
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Recomputed before every request so dates never drift.",
+          "const d = new Date();",
+          "const fmt = n => {",
+          "    const r = new Date(d);",
+          "    r.setDate(r.getDate() + n);",
+          "    return r.toISOString().split('T')[0];",
+          "};",
+          "pm.collectionVariables.set('today',     fmt(0));",
+          "pm.collectionVariables.set('yesterday', fmt(-1));",
+          "pm.collectionVariables.set('tomorrow',  fmt(1));",
+          "pm.collectionVariables.set('in_7',      fmt(7));",
+          "pm.collectionVariables.set('in_10',     fmt(10));",
+          "pm.collectionVariables.set('in_15',     fmt(15));",
+          "pm.collectionVariables.set('in_20',     fmt(20));",
+          "pm.collectionVariables.set('in_30',     fmt(30));",
+          "pm.collectionVariables.set('in_31',     fmt(31));",
+          "pm.collectionVariables.set('in_32',     fmt(32));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 — Setup",
+      "description": "Run this folder first. It logs in as all three accounts and discovers the IDs the later folders need. All other folders depend on the variables it sets.",
+      "item": [
+        {
+          "name": "Login — Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('access_token present', () => pm.expect(body.access_token).to.be.a('string').and.not.empty);",
+                  "pm.test('role is admin', () => pm.expect(body.user.role).to.eql('admin'));",
+                  "pm.collectionVariables.set('admin_token', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"admin@example.com\", \"password\": \"admin1234\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/auth/login"}
+          }
+        },
+        {
+          "name": "Login — Demo User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('access_token present', () => pm.expect(body.access_token).to.be.a('string').and.not.empty);",
+                  "pm.test('role is user', () => pm.expect(body.user.role).to.eql('user'));",
+                  "pm.collectionVariables.set('demo_token', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"demo@example.com\", \"password\": \"demo1234\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/auth/login"}
+          }
+        },
+        {
+          "name": "Login — Fresh User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('fresh_token', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"fresh@example.com\", \"password\": \"fresh1234\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/auth/login"}
+          }
+        },
+        {
+          "name": "Discover Providers",
+          "description": "Lists all providers including the retired one (admin only). Stores the four seeded provider IDs for use in later requests.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const providers = pm.response.json();",
+                  "pm.test('four providers returned', () => pm.expect(providers).to.have.lengthOf(4));",
+                  "const fw = providers.find(p => p.name === 'Fast Wheels');",
+                  "const cr = providers.find(p => p.name === 'City Rentals');",
+                  "const bd = providers.find(p => p.name === 'Budget Drive');",
+                  "const ot = providers.find(p => p.name === 'Old Timer Cars');",
+                  "pm.test('all four seeded providers present', () => {",
+                  "    pm.expect(fw).to.exist;",
+                  "    pm.expect(cr).to.exist;",
+                  "    pm.expect(bd).to.exist;",
+                  "    pm.expect(ot).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set('provider_id',         fw.id);",
+                  "pm.collectionVariables.set('provider_city_id',    cr.id);",
+                  "pm.collectionVariables.set('provider_budget_id',  bd.id);",
+                  "pm.collectionVariables.set('provider_retired_id', ot.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+            "url": {"raw": "{{base_url}}/providers?include_retired=true"}
+          }
+        },
+        {
+          "name": "Discover Fast Wheels Vehicle Classes",
+          "description": "Lists vehicle classes under Fast Wheels. Stores the first class (Economy) ID.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classes = pm.response.json();",
+                  "pm.test('at least one class', () => pm.expect(classes.length).to.be.above(0));",
+                  "const economy = classes.find(c => c.name === 'Economy');",
+                  "pm.test('Economy class present', () => pm.expect(economy).to.exist);",
+                  "pm.collectionVariables.set('vc_economy_id', economy.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes"}
+          }
+        },
+        {
+          "name": "Discover Fast Wheels Branches",
+          "description": "Lists branches under Fast Wheels. Stores the Siam branch ID.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const branches = pm.response.json();",
+                  "pm.test('at least one branch', () => pm.expect(branches.length).to.be.above(0));",
+                  "const siam = branches.find(b => b.name === 'Siam');",
+                  "pm.test('Siam branch present', () => pm.expect(siam).to.exist);",
+                  "pm.collectionVariables.set('branch_siam_id', siam.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}/branches"}
+          }
+        },
+        {
+          "name": "Discover Demo User's Bookings",
+          "description": "Lists the demo user's bookings. Stores the ended booking ID (for the review demo) and the upcoming booking ID (for the negative case: reviewing before period ends).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const bookings = pm.response.json();",
+                  "pm.test('two seeded bookings', () => pm.expect(bookings).to.have.lengthOf(2));",
+                  "const today = new Date().toISOString().split('T')[0];",
+                  "const ended   = bookings.find(b => b.end_date < today);",
+                  "const upcoming = bookings.find(b => b.end_date >= today);",
+                  "pm.test('ended booking found',   () => pm.expect(ended).to.exist);",
+                  "pm.test('upcoming booking found', () => pm.expect(upcoming).to.exist);",
+                  "pm.collectionVariables.set('ended_booking_id',   ended.id);",
+                  "pm.collectionVariables.set('upcoming_booking_id', upcoming.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/bookings"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 — Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('status ok',   () => pm.expect(body.status).to.eql('ok'));",
+                  "pm.test('database ok', () => pm.expect(body.database).to.eql('ok'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/health"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — Authentication",
+      "item": [
+        {
+          "name": "Register — New Account",
+          "description": "Registers a new user and returns an access token. The body is the full registration shape: name, telephone, email, password.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('access_token issued', () => pm.expect(body.access_token).to.be.a('string').and.not.empty);",
+                  "pm.test('user returned', () => {",
+                  "    pm.expect(body.user.email).to.eql('newuser@example.com');",
+                  "    pm.expect(body.user.role).to.eql('user');",
+                  "});",
+                  "pm.test('password not in response', () => {",
+                  "    const raw = pm.response.text();",
+                  "    pm.expect(raw).to.not.include('newpass1234');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"New User\", \"telephone\": \"0899999999\", \"email\": \"newuser@example.com\", \"password\": \"newpass1234\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/auth/register"}
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('access_token present', () => pm.expect(body.access_token).to.be.a('string').and.not.empty);",
+                  "pm.test('token_type is bearer', () => pm.expect(body.token_type).to.eql('bearer'));",
+                  "pm.test('expires_in is positive', () => pm.expect(body.expires_in).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"demo@example.com\", \"password\": \"demo1234\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/auth/login"}
+          }
+        },
+        {
+          "name": "Get Current User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('email matches token', () => pm.expect(body.email).to.eql('demo@example.com'));",
+                  "pm.test('no password field', () => pm.expect(body).to.not.have.property('password'));",
+                  "pm.test('no password_hash field', () => pm.expect(body).to.not.have.property('password_hash'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/auth/me"}
+          }
+        },
+        {
+          "name": "Logout",
+          "description": "Logout is client-side. The server invalidates nothing; access tokens are stateless and stay valid until they expire. This is by design, not an oversight — see ADR-0003.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('message present', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/auth/logout"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — Provider Browsing",
+      "item": [
+        {
+          "name": "List Providers — Active Only",
+          "description": "Registered users see only active providers. The retired 'Old Timer Cars' is absent.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const providers = pm.response.json();",
+                  "pm.test('no retired providers', () => {",
+                  "    providers.forEach(p => pm.expect(p.is_retired).to.be.false);",
+                  "});",
+                  "pm.test('rating fields present', () => {",
+                  "    providers.forEach(p => {",
+                  "        pm.expect(p).to.have.property('average_rating');",
+                  "        pm.expect(p).to.have.property('review_count');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/providers"}
+          }
+        },
+        {
+          "name": "List Providers — Include Retired (Admin)",
+          "description": "Admins may pass include_retired=true to see retired providers in the list.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const providers = pm.response.json();",
+                  "pm.test('retired provider appears', () => {",
+                  "    const retired = providers.find(p => p.is_retired === true);",
+                  "    pm.expect(retired).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+            "url": {"raw": "{{base_url}}/providers?include_retired=true"}
+          }
+        },
+        {
+          "name": "Get Provider by ID",
+          "description": "Returns a single provider with its average rating and review count.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('id matches', () => pm.expect(body.id).to.eql(pm.collectionVariables.get('provider_id') * 1));",
+                  "pm.test('name is Fast Wheels', () => pm.expect(body.name).to.eql('Fast Wheels'));",
+                  "pm.test('rating fields present', () => {",
+                  "    pm.expect(body).to.have.property('average_rating');",
+                  "    pm.expect(body).to.have.property('review_count');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — Provider Management (Admin)",
+      "item": [
+        {
+          "name": "Create Provider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('name matches', () => pm.expect(body.name).to.eql('Demo Rentals'));",
+                  "pm.test('not retired', () => pm.expect(body.is_retired).to.be.false);",
+                  "pm.collectionVariables.set('new_provider_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{admin_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Demo Rentals\", \"address\": \"1 Test St, Bangkok\", \"telephone\": \"020000001\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers"}
+          }
+        },
+        {
+          "name": "Edit Provider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('name updated', () => pm.expect(body.name).to.eql('Demo Rentals Updated'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{admin_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Demo Rentals Updated\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers/{{new_provider_id}}"}
+          }
+        },
+        {
+          "name": "Retire Provider",
+          "description": "Marks the provider as retired. The record is preserved; existing bookings and reviews survive. Retired providers are excluded from the catalogue list.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('is_retired is true', () => pm.expect(body.is_retired).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+            "url": {"raw": "{{base_url}}/providers/{{new_provider_id}}"}
+          }
+        },
+        {
+          "name": "Reinstate Provider",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('is_retired is false', () => pm.expect(body.is_retired).to.be.false);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+            "url": {"raw": "{{base_url}}/providers/{{new_provider_id}}/reinstate"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — Booking Lifecycle",
+      "description": "A booking requires vehicle_class_id and pickup_branch_id in addition to the dates. A round-one shaped body (dates only) answers 422. The Setup folder discovers these IDs automatically.",
+      "item": [
+        {
+          "name": "Create Booking",
+          "description": "Creates the demo user's second active booking (the seeded upcoming booking is the first). start_date and end_date are computed by the collection pre-request script.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('vehicle_class nested', () => pm.expect(body.vehicle_class).to.exist);",
+                  "pm.test('pickup_branch nested', () => pm.expect(body.pickup_branch).to.exist);",
+                  "pm.test('provider nested', () => pm.expect(body.provider).to.exist);",
+                  "pm.test('start_date matches', () => pm.expect(body.start_date).to.eql(pm.collectionVariables.get('tomorrow')));",
+                  "pm.collectionVariables.set('booking_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{tomorrow}}\", \"end_date\": \"{{in_7}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}/bookings"}
+          }
+        },
+        {
+          "name": "Create Second Booking",
+          "description": "Creates the demo user's third active booking. Non-overlapping dates keep both bookings live simultaneously.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('booking_id_2', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_10}}\", \"end_date\": \"{{in_20}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}/bookings"}
+          }
+        },
+        {
+          "name": "List Bookings (Own)",
+          "description": "A registered user sees only their own bookings. The demo user now holds four: one ended (seeded), one upcoming (seeded), and two just created.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const bookings = pm.response.json();",
+                  "pm.test('at least four bookings', () => pm.expect(bookings.length).to.be.at.least(4));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/bookings"}
+          }
+        },
+        {
+          "name": "Get Booking by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('id matches', () => pm.expect(body.id).to.eql(pm.collectionVariables.get('booking_id') * 1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/bookings/{{booking_id}}"}
+          }
+        },
+        {
+          "name": "Re-date Booking",
+          "description": "Replaces the rental period. Provider and vehicle class cannot be changed — extra fields are refused, not ignored.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('start_date updated', () => pm.expect(body.start_date).to.eql(pm.collectionVariables.get('tomorrow')));",
+                  "pm.test('end_date updated', () => pm.expect(body.end_date).to.eql(pm.collectionVariables.get('in_15')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"start_date\": \"{{tomorrow}}\", \"end_date\": \"{{in_15}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/bookings/{{booking_id}}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — Reviews",
+      "description": "Reviews use the demo user's seeded ended booking. Two rules demonstrated here cannot be shown by an error: an ended booking IS reviewable (201, not 409), and it does NOT count toward the three-booking cap (see folder 08 for the cap test).",
+      "item": [
+        {
+          "name": "Create Review",
+          "description": "The seeded ended booking is reviewable because its end_date is in the past. Using it here demonstrates that ended bookings transition into the reviewable state.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('rating matches', () => pm.expect(body.rating).to.eql(4));",
+                  "pm.test('comment present', () => pm.expect(body.comment).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('review_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\": 4, \"comment\": \"Good service, comfortable car.\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews"}
+          }
+        },
+        {
+          "name": "Edit Review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('rating updated to 5', () => pm.expect(body.rating).to.eql(5));",
+                  "pm.test('comment updated', () => pm.expect(body.comment).to.eql('Excellent service, would rent again.'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\": 5, \"comment\": \"Excellent service, would rent again.\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/reviews/{{review_id}}"}
+          }
+        },
+        {
+          "name": "Delete Review (Owner)",
+          "description": "The booking's owner may delete their own review. The booking remains and becomes reviewable again.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/reviews/{{review_id}}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 — Admin Oversight",
+      "item": [
+        {
+          "name": "List All Bookings (Admin)",
+          "description": "An admin receives every booking in the system, not just their own.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const bookings = pm.response.json();",
+                  "pm.test('multiple users represented', () => pm.expect(bookings.length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+            "url": {"raw": "{{base_url}}/bookings"}
+          }
+        },
+        {
+          "name": "Create Review (for Admin Delete Demo)",
+          "description": "Re-creates the review on the ended booking so the admin delete can be demonstrated.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('review_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\": 3, \"comment\": \"Decent, nothing special.\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews"}
+          }
+        },
+        {
+          "name": "Delete Any Review (Admin)",
+          "description": "An admin may delete any review, not just their own.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{admin_token}}"}],
+            "url": {"raw": "{{base_url}}/reviews/{{review_id}}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 — Negative Cases",
+      "description": "Every guard in the brief, exercised explicitly. Expected status codes are asserted in the test scripts.",
+      "item": [
+        {
+          "name": "4th Active Booking — 409 (Cap)",
+          "description": "The three-active-booking cap. At this point the demo user holds three active bookings: the seeded upcoming booking, booking_id, and booking_id_2. A fourth attempt is refused.\n\nNote: the demo user also holds one ENDED booking. Ended bookings do not count toward the cap — if they did, the limit would have been reached one booking earlier. The 409 here, while the ended booking exists, demonstrates that the cap is applied to active bookings only.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('detail mentions limit', () => pm.expect(body.detail.toLowerCase()).to.include('maximum'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_20}}\", \"end_date\": \"{{in_30}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}/bookings"}
+          }
+        },
+        {
+          "name": "Reversed Date Range — 422",
+          "description": "end_date before start_date is a malformed request.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{fresh_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_10}}\", \"end_date\": \"{{tomorrow}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}/bookings"}
+          }
+        },
+        {
+          "name": "31-Day Rental — 422",
+          "description": "Rental periods are capped at 30 days inclusive. A 31-day range (tomorrow through in_31) exceeds the cap.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{fresh_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{tomorrow}}\", \"end_date\": \"{{in_31}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}/bookings"}
+          }
+        },
+        {
+          "name": "Past Start Date — 422",
+          "description": "A booking may not start in the past. Re-dating an existing booking may touch past dates, but creation may not.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{fresh_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{yesterday}}\", \"end_date\": \"{{in_7}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers/{{provider_id}}/bookings"}
+          }
+        },
+        {
+          "name": "Booking Retired Provider — 409",
+          "description": "A retired provider no longer accepts new bookings.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('detail mentions retired', () => pm.expect(body.detail.toLowerCase()).to.include('retired'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{fresh_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": 1, \"pickup_branch_id\": 1, \"start_date\": \"{{tomorrow}}\", \"end_date\": \"{{in_7}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/providers/{{provider_retired_id}}/bookings"}
+          }
+        },
+        {
+          "name": "Review Before Period Ends — 409",
+          "description": "A review may only be written once the rental period has ended. The demo user's seeded upcoming booking ends in the future.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('detail mentions period not ended', () => pm.expect(body.detail.toLowerCase()).to.include('ended'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\": 3, \"comment\": \"Tried to review early.\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/bookings/{{upcoming_booking_id}}/reviews"}
+          }
+        },
+        {
+          "name": "Second Review — Setup: Create Review",
+          "description": "Creates a review on the ended booking so the duplicate attempt below has something to clash with.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('review_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\": 4, \"comment\": \"Good rental.\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews"}
+          }
+        },
+        {
+          "name": "Second Review on Same Booking — 409",
+          "description": "A booking may only be reviewed once.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('detail mentions already reviewed', () => pm.expect(body.detail.toLowerCase()).to.include('already'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{demo_token}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\": 2, \"comment\": \"Trying to review a second time.\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {"raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews"}
+          }
+        },
+        {
+          "name": "Another User's Booking — 404",
+          "description": "A registered user reaches for a booking belonging to another user. The server answers 404 (not 403) so that booking identifiers cannot be enumerated.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{fresh_token}}"}],
+            "url": {"raw": "{{base_url}}/bookings/{{booking_id}}"}
+          }
+        },
+        {
+          "name": "Cleanup — Delete Review",
+          "description": "Removes the review created for the duplicate-review negative case.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/reviews/{{review_id}}"}
+          }
+        },
+        {
+          "name": "Cleanup — Delete Booking 1",
+          "description": "Removes booking_id.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/bookings/{{booking_id}}"}
+          }
+        },
+        {
+          "name": "Cleanup — Delete Booking 2",
+          "description": "Removes booking_id_2.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization", "value": "Bearer {{demo_token}}"}],
+            "url": {"raw": "{{base_url}}/bookings/{{booking_id_2}}"}
+          }
+        }
+      ]
+    }
+  ]
+}

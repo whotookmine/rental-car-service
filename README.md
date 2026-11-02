@@ -73,6 +73,45 @@ uv run uvicorn app.main:app --reload --port 8000
   to get a working collection).
 - Interactive docs: <http://127.0.0.1:8000/docs>.
 
+## Demo
+
+### Credentials
+
+After running `uv run python -m app.seed`:
+
+| Account | Email | Password | Notes |
+|---|---|---|---|
+| Admin | `admin@example.com` | `admin1234` | Can create and edit providers, see all bookings, delete any review |
+| Demo user | `demo@example.com` | `demo1234` | Has one ended booking (reviewable) and one upcoming booking |
+| Clean user | `fresh@example.com` | `fresh1234` | No bookings — useful for demonstrating registration and the booking flow from scratch |
+
+### Postman collection
+
+Import `rental-car-service.postman_collection.json` into Postman. Run the folders in order:
+
+1. **00 — Setup** — must run first. Logs in as all three accounts and calls the API to discover the IDs that later folders depend on.
+2. **01 — Health** — confirms the API and database are up.
+3. **02 — Authentication** — register a new account, log in, inspect the token holder, log out. Logout is client-side: the server invalidates nothing; the token remains valid until it expires. This is by design, not an oversight — see the architecture decision on stateless tokens in `docs/adr/`.
+4. **03 — Provider Browsing** — list active providers (with ratings), inspect a single provider, observe that the retired provider appears only with an admin token.
+5. **04 — Provider Management (Admin)** — create a provider, edit its details, retire it, reinstate it.
+6. **05 — Booking Lifecycle** — create two bookings for the demo user, list and inspect them, re-date one. Creating a booking requires `vehicle_class_id` and `pickup_branch_id` in addition to the dates; the Setup folder discovers these IDs automatically (see *The one divergence* below).
+7. **06 — Reviews** — create a review on the demo user's ended booking, edit it, delete it. The ended booking is reviewable; an active booking is not (see the negative case in folder 08).
+8. **07 — Admin Oversight** — admin's view of all bookings, and admin deletion of any review.
+9. **08 — Negative Cases** — explicit demonstrations of every guard: the three-booking cap, reversed dates, the 31-day limit, a past start date, booking a retired provider, reviewing before the period ends, a second review attempt, and one user reaching for another user's booking.
+
+The base URL is a collection variable (`base_url`, default `http://localhost:8000`). All dates are computed by a collection-level pre-request script and are never hard-coded, so the collection does not go stale.
+
+### The one divergence from the original brief
+
+The brief was written before vehicle classes and pickup branches existed. Creating a booking now requires `vehicle_class_id` and `pickup_branch_id` alongside the dates — a round-one shaped body (dates only) answers `422`. The Setup folder discovers the correct IDs from the seeded data automatically; nothing needs to be filled in by hand. `docs/REQUIREMENTS-TRACE.md` records the reasoning under "The one divergence".
+
+### Two rules that need the seeded ended booking
+
+Two constraints cannot be shown by watching the API return an error; they are shown by watching it succeed where a naive implementation would fail:
+
+- **Ended bookings do not count toward the three-booking cap.** At the point the negative case fires, the demo user holds one ended booking and three active ones. The fourth active booking attempt is refused at 409. If ended bookings counted, the limit would have been reached one attempt earlier. The collection says so in the relevant request description.
+- **Ended bookings are reviewable.** The review creation in folder 06 succeeds with 201. If the booking were still considered active, the service would refuse with 409 ("rental period has not ended yet"). The collection says so there too.
+
 ## Smoke run
 
 With the app running and the database seeded:

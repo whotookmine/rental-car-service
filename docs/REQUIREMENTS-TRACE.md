@@ -15,8 +15,7 @@ database.
 
 ## Verdict in one line
 
-**Round one is complete and conforming, except the Postman collection** (ticket 22 — a
-named deliverable, not a nicety). Of round two, **requirements 4 and 7 are complete**;
+**Round one is complete and conforming.** Of round two, **requirements 4 and 7 are complete**;
 requirement 5 is built apart from its relocation fee; requirement 6 has no surface yet.
 
 ---
@@ -125,7 +124,7 @@ shown. The "Verified" column is the actual response, not a description of one.
 | Authenticate using username/password | ✅ | Email + password at `/auth/login`; bcrypt hashes; HS256 JWT, 60 minutes |
 | Keep the user's transactions confidential | ✅ | Bookings and reviews are scoped by the token's identity, never by a body or query field. Another user's booking answers `404`. No credential ever appears in a response: a `422` on registration renders the rejected password as `"password":"[redacted]"` |
 | Respond within 3 seconds | ✅ | Measured, warm, against the seeded database: `/health` 3.6 ms, `/providers` 5.8 ms, `/providers/1` 6.6 ms, `/bookings` 6.4 ms, `/providers/1/availability` 6.6 ms, `/providers/1/vehicle_classes` 9.2 ms. Three orders of magnitude inside the budget |
-| **Used and tested via Postman** | ❌ **GAP** | **No collection is committed.** `git ls-files \| grep -i postman` returns nothing but the ticket files. This is **ticket 22**, owner Garfield, still `ready-for-agent` |
+| **Used and tested via Postman** | ✅ | `rental-car-service.postman_collection.json` committed at repo root. 42 requests across 9 folders: health, authentication, provider browsing, provider management, booking lifecycle, reviews, admin oversight, and negative cases (all 8 guards exercised explicitly). Dates computed by pre-request scripts; tokens and IDs captured from responses; base URL a variable. Verified green end-to-end against a freshly seeded database (ticket 22, owner Garfield) |
 
 ---
 
