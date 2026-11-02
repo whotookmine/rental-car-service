@@ -22,15 +22,20 @@ resources, FastAPI's default `{"detail": ...}` error shape with self-explaining 
 There was no Car entity in the first round of work: a booking reserved a period with a
 provider and nothing else. The second round introduces the **vehicle class** — the kind
 of car a provider rents — because a waitlist has to queue for something more specific
-than a whole business. Since ticket 25 a booking names one.
+than a whole business. Since ticket 24 an individual **vehicle** (one car) is also
+modelled, and since ticket 36 a **branch** (a physical pickup location) is required on
+every booking.
 
 - **User** — name, telephone, email (unique, lowercased), password hash, role
   (`user` | `admin`, defaults to `user`, never settable through the API).
 - **Provider** — name, address, telephone, `is_retired`.
+- **Branch** — provider, name, address, telephone, `delivery_radius_km` (nullable). A
+  physical pickup location. A provider must always have at least one.
 - **Vehicle Class** — provider, name, description. The kind of car, not an individual
   car. Belongs to exactly one provider for its whole life.
 - **Vehicle** — vehicle class, plate (unique system-wide). One individual car.
-- **Booking** — user, provider, vehicle class, `start_date`, `end_date` (both `DATE`).
+- **Booking** — user, provider, vehicle class, pickup branch, optional drop-off branch,
+  `start_date`, `end_date` (both `DATE`).
 - **Blackout Window** — vehicle, `start_date`, `end_date` (both `DATE`, inclusive). A
   period one car is off the road for servicing. No two on one vehicle may overlap.
 - **Notification** — user, kind, message, `created_at`, `read_at` (nullable). A record the
