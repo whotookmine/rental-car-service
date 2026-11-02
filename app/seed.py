@@ -12,9 +12,12 @@ Refuses to run when ENV=production.
 
 Demo credentials
 ----------------
-Admin:      admin@example.com   / admin1234
-Demo user:  demo@example.com    / demo1234   (has an ended booking and an upcoming one)
-Clean user: fresh@example.com   / fresh1234  (no bookings — walk through registration live)
+Admin:        admin@example.com   / admin1234
+Demo user:    demo@example.com    / demo1234   (ended booking + upcoming booking, 2 notifications)
+Fresh user:   fresh@example.com   / fresh1234  (no bookings — walk through registration live)
+Alpha user:   alpha@example.com   / alpha1234  (holds the SUV booking that fills the class)
+Beta user:    beta@example.com    / beta1234   (waitlist position 1 for SUV)
+Gamma user:   gamma@example.com   / gamma1234  (waitlist position 2 for SUV)
 """
 
 import sys
@@ -26,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.models import User, UserRole
 from app.auth.security import hash_password
+from app.blackout_windows.models import BlackoutWindow
 from app.bookings.models import Booking
 from app.branch_distances.models import BranchDistance
 from app.branches.models import Branch
@@ -37,6 +41,7 @@ from app.one_way_routes.models import OneWayRoute
 from app.providers.models import Provider
 from app.vehicle_classes.models import VehicleClass
 from app.vehicles.models import Vehicle
+from app.waitlist.models import WaitlistEntry
 
 
 # Reverse dependency order. Bookings first, because they hold RESTRICT keys to
@@ -73,7 +78,7 @@ def _wipe(db: Session) -> None:
         db.execute(text(f"DELETE FROM {table}"))
 
 
-def _users(db: Session) -> tuple[User, User, User]:
+def _users(db: Session) -> tuple[User, User, User, User, User, User]:
     admin = User(
         name="Admin",
         telephone="0000000000",
@@ -95,9 +100,34 @@ def _users(db: Session) -> tuple[User, User, User]:
         password_hash=hash_password("fresh1234"),
         role=UserRole.user,
     )
-    db.add_all([admin, demo, fresh])
+    # Alpha holds the booking that fills the SUV class for the demo range,
+    # so a waitlist can be joined immediately without first booking it out by hand.
+    alpha = User(
+        name="Alpha User",
+        telephone="0833333333",
+        email="alpha@example.com",
+        password_hash=hash_password("alpha1234"),
+        role=UserRole.user,
+    )
+    # Beta and gamma are in the waitlist queue (beta first, gamma second),
+    # so FIFO order is visible without manually joining mid-demo.
+    beta = User(
+        name="Beta User",
+        telephone="0844444444",
+        email="beta@example.com",
+        password_hash=hash_password("beta1234"),
+        role=UserRole.user,
+    )
+    gamma = User(
+        name="Gamma User",
+        telephone="0855555555",
+        email="gamma@example.com",
+        password_hash=hash_password("gamma1234"),
+        role=UserRole.user,
+    )
+    db.add_all([admin, demo, fresh, alpha, beta, gamma])
     db.flush()
-    return admin, demo, fresh
+    return admin, demo, fresh, alpha, beta, gamma
 
 
 def _providers(db: Session) -> list[Provider]:
@@ -118,6 +148,10 @@ def _branches(db: Session, providers: list[Provider]) -> list[Branch]:
     A booking must name a pickup branch, so no provider can be bookable without
     one. The first provider gets a second branch because a one-way rental needs
     two, and the whole one-way feature is undemonstrable otherwise.
+
+    Siam has a delivery radius; Don Mueang Airport does not. This gives one branch
+    of each kind so the delivery refusal ("branch does not offer delivery") can be
+    demonstrated as well as the happy path.
     """
     branches = [
         Branch(
@@ -125,6 +159,7 @@ def _branches(db: Session, providers: list[Provider]) -> list[Branch]:
             name="Siam",
             address="991 Rama I Rd, Bangkok",
             telephone="021111101",
+            delivery_radius_km=20,
         ),
         Branch(
             provider_id=providers[0].id,
@@ -186,7 +221,7 @@ def _vehicle_classes(db: Session, providers: list[Provider]) -> list[VehicleClas
 
     Daily rates are set on all but one. "Classic" is left unpriced on purpose, so
     that a demo can show a quotation refusing to price a class rather than
-    quietly quoting zero. Ticket 47 rebuilds this fixture.
+    quietly quoting zero.
     """
     classes = [
         VehicleClass(
@@ -224,13 +259,17 @@ def _vehicle_classes(db: Session, providers: list[Provider]) -> list[VehicleClas
     return classes
 
 
-def _vehicles(db: Session, classes: list[VehicleClass]) -> None:
+def _vehicles(db: Session, classes: list[VehicleClass]) -> list[Vehicle]:
     """Cars for each class, because capacity is now enforced.
 
     Without these every seeded class would have capacity zero and refuse every
     booking, including the fixture's own. Counts differ on purpose: the demo
     should be able to fill a small class and see the refusal without creating
     three bookings first, while a larger one stays bookable.
+
+    Vehicle order is stable across re-seeds within a single database lifecycle:
+    Economy(FW)[0..2], SUV(FW)[3], Economy(CR)[4..6], Van[7..8], Classic[9].
+    _blackout_windows uses index 0 (first Economy vehicle).
     """
     counts = {
         "Economy": 3,
@@ -248,15 +287,17 @@ def _vehicles(db: Session, classes: list[VehicleClass]) -> None:
             )
     db.add_all(vehicles)
     db.flush()
+    return vehicles
 
 
 def _bookings(
     db: Session,
     demo_user: User,
+    alpha_user: User,
     providers: list[Provider],
     classes: list[VehicleClass],
     branches: list[Branch],
-) -> None:
+) -> tuple[Booking, Booking, Booking]:
     t = today()
 
     # Ended booking: inserted directly through the ORM to bypass the no-past-dates
@@ -287,8 +328,20 @@ def _bookings(
         end_date=t + timedelta(days=15),
     )
 
-    db.add_all([ended, upcoming])
-    return ended, upcoming
+    # Alpha fills the SUV class (1 vehicle) for a known future range, so the
+    # waitlist can be joined immediately without first booking it out by hand.
+    # Inserted through the ORM like the ended booking above.
+    suv_full = Booking(
+        user_id=alpha_user.id,
+        provider_id=providers[0].id,
+        vehicle_class_id=classes[1].id,   # SUV
+        pickup_branch_id=branches[0].id,   # Siam
+        start_date=t + timedelta(days=3),
+        end_date=t + timedelta(days=10),
+    )
+
+    db.add_all([ended, upcoming, suv_full])
+    return ended, upcoming, suv_full
 
 
 def _notifications(
@@ -340,6 +393,62 @@ def _notifications(
     )
 
 
+def _blackout_windows(db: Session, vehicles: list[Vehicle]) -> None:
+    """One Economy vehicle in the workshop for a known future range.
+
+    The Economy class has 3 cars, so effective capacity during this window is 2.
+    Availability for that range will show free_count: 2 instead of 3.
+
+    Vehicle: vehicles[0], the first Fast Wheels Economy car.
+    """
+    t = today()
+    db.add(
+        BlackoutWindow(
+            vehicle_id=vehicles[0].id,
+            start_date=t + timedelta(days=2),
+            end_date=t + timedelta(days=6),
+        )
+    )
+    db.flush()
+
+
+def _waitlist_entries(
+    db: Session,
+    beta: User,
+    gamma: User,
+    providers: list[Provider],
+    classes: list[VehicleClass],
+    suv_full: Booking,
+) -> None:
+    """Beta and gamma queue for the SUV class on the same range as alpha's booking.
+
+    Beta joined earlier (position 1); gamma joined later (position 2). The
+    two-minute gap is enough to show FIFO ordering without making the timestamps
+    look contrived.
+    """
+    db.add_all(
+        [
+            WaitlistEntry(
+                user_id=beta.id,
+                provider_id=providers[0].id,
+                vehicle_class_id=classes[1].id,
+                start_date=suv_full.start_date,
+                end_date=suv_full.end_date,
+                created_at=now() - timedelta(minutes=10),
+            ),
+            WaitlistEntry(
+                user_id=gamma.id,
+                provider_id=providers[0].id,
+                vehicle_class_id=classes[1].id,
+                start_date=suv_full.start_date,
+                end_date=suv_full.end_date,
+                created_at=now() - timedelta(minutes=5),
+            ),
+        ]
+    )
+    db.flush()
+
+
 def seed() -> None:
     settings = get_settings()
     if settings.env == "production":
@@ -347,27 +456,41 @@ def seed() -> None:
 
     with Session(engine) as db:
         _wipe(db)
-        _, demo, _ = _users(db)
+        _, demo, _, alpha, beta, gamma = _users(db)
         providers = _providers(db)
         branches = _branches(db, providers)
         _one_way_service(db, branches)
         classes = _vehicle_classes(db, providers)
-        _vehicles(db, classes)
-        ended, upcoming = _bookings(db, demo, providers, classes, branches)
+        vehicles = _vehicles(db, classes)
+        ended, upcoming, suv_full = _bookings(db, demo, alpha, providers, classes, branches)
         # Flushed so the bookings have the dates the notifications quote; they are
         # already set, but flushing keeps the dependency explicit rather than
         # relying on attribute order.
         db.flush()
         _notifications(db, demo, providers, ended, upcoming)
+        _blackout_windows(db, vehicles)
+        _waitlist_entries(db, beta, gamma, providers, classes, suv_full)
         db.commit()
+
+    t = today()
+    suv_start = t + timedelta(days=3)
+    suv_end = t + timedelta(days=10)
+    bw_start = t + timedelta(days=2)
+    bw_end = t + timedelta(days=6)
 
     print("Seed complete.")
     print()
-    print("  Admin:      admin@example.com  / admin1234")
-    print("  Demo user:  demo@example.com   / demo1234   (ended + upcoming booking)")
-    print("  Clean user: fresh@example.com  / fresh1234  (no bookings)")
+    print("  Admin:        admin@example.com   / admin1234")
+    print("  Demo user:    demo@example.com    / demo1234   (ended + upcoming booking, 2 notifications)")
+    print("  Fresh user:   fresh@example.com   / fresh1234  (no bookings)")
+    print("  Alpha user:   alpha@example.com   / alpha1234  (holds SUV booking that fills the class)")
+    print("  Beta user:    beta@example.com    / beta1234   (waitlist position 1 for Fast Wheels SUV)")
+    print("  Gamma user:   gamma@example.com   / gamma1234  (waitlist position 2 for Fast Wheels SUV)")
     print()
-    print("  The demo user also holds 2 notifications, one of them unread.")
+    print(f"  Fast Wheels — Siam branch: delivery available, radius 20 km")
+    print(f"  Fast Wheels — SUV class: FULL for {suv_start} to {suv_end} (alpha's booking fills 1/1 cars)")
+    print(f"  Fast Wheels — Economy: one car blacked out {bw_start} to {bw_end} (effective capacity: 2/3)")
+    print(f"  Waitlist: beta (position 1) and gamma (position 2) queued for SUV on {suv_start} to {suv_end}")
 
 
 if __name__ == "__main__":

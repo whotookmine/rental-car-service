@@ -929,17 +929,19 @@ What it creates, and why each piece has to be there:
 
 | | | Why |
 |---|---|---|
-| 1 admin, 2 users | `admin`, `demo`, `fresh` | `demo` holds bookings to act on; `fresh` holds none, so registration and a first booking can be walked through live |
+| 1 admin, 5 users | `admin`, `demo`, `fresh`, `alpha`, `beta`, `gamma` | `demo` holds bookings to act on; `fresh` holds none; `alpha` fills the SUV class; `beta` and `gamma` are in the waitlist queue |
 | 4 providers | one of them retired | the retired one proves bookings survive retirement |
-| 5 branches | two under the first provider | a booking must name a pickup branch, so no provider is bookable without one; one-way needs two |
+| 5 branches | two under the first provider; Siam has `delivery_radius_km=20`, Don Mueang has none | a booking must name a pickup branch; one-way needs two; one branch with delivery and one without so both outcomes are demonstrable |
 | 1 inter-branch distance | Siam ↔ Don Mueang, 27.5 km | one-way enablement is refused without a recorded distance |
 | 1 one-way route | Siam → airport, **one direction only** | the directional refusal is the easiest one-way rule to get wrong, and enabling both ways would hide it |
 | 5 vehicle classes | one per provider, two for the first | a booking must name a class |
 | daily rates on 4 of the 5 | "Classic" left unpriced | so a quotation can be shown refusing to price a class rather than quoting zero |
 | 10 vehicles | Economy 3, SUV 1, Van 2, Classic 1 | a class with no cars refuses every booking; the uneven counts let a demo fill the one-car class in a single request |
-| 2 bookings for `demo` | one ended and one-way, one upcoming and round-trip | one of each shape; the ended one is reviewable, and the review has to attach to a finished rental |
+| 3 bookings | `demo` ended (one-way) + `demo` upcoming (round-trip) + `alpha` SUV (fills the class) | one of each shape; the ended one is reviewable; the SUV booking makes the waitlist joinable immediately without first filling it by hand |
 | 0 reviews | | the demo performs the first one |
-| 2 notifications for `demo` | one read, one unread | nothing in the service emits one yet, so without these `GET /notifications` could only be shown returning `[]` and marking one read could not be shown at all. One of each state, because "newest first" and "has it been read" are only visible when the rows differ. Both describe facts that are **actually true** of this fixture — the ended booking really is waiting for a review — because a fixture asserting something the rest of it contradicts is worse than none |
+| 2 notifications for `demo` | one read, one unread | nothing in the service emits one yet; one of each state so "newest first" and "has it been read" are both visible |
+| 1 blackout window | one Economy vehicle, today+2 to today+6 | demonstrates `free_count: 2` (not 3) during that range, and maintenance-overlap refusal |
+| 2 waitlist entries | `beta` (position 1) + `gamma` (position 2) for SUV, same range as alpha's booking | FIFO order is visible without manually queuing mid-demo |
 
 The ended booking is inserted through the ORM, bypassing the no-past-dates rule, which
 exists to protect users rather than to constrain fixtures.

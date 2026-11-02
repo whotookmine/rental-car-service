@@ -9,22 +9,22 @@ demonstrated from an empty database.
 
 **Owner:** Garfield
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The existing seed still produces everything it did before, including the ended
+- [x] The existing seed still produces everything it did before, including the ended
       booking that makes reviews demonstrable
-- [ ] Providers have several branches, with distances recorded between them
-- [ ] At least one branch pair has one-way enabled and at least one does not, so both
+- [x] Providers have several branches, with distances recorded between them
+- [x] At least one branch pair has one-way enabled and at least one does not, so both
       outcomes can be shown
-- [ ] At least one branch offers delivery and one does not
-- [ ] Vehicle classes have prices, and at least one class is deliberately left unpriced
-- [ ] One class is seeded **full** for a known date range, so the waitlist can be joined
+- [x] At least one branch offers delivery and one does not
+- [x] Vehicle classes have prices, and at least one class is deliberately left unpriced
+- [x] One class is seeded **full** for a known date range, so the waitlist can be joined
       immediately without first booking it out by hand
-- [ ] One vehicle has a maintenance blackout over a known range
-- [ ] A waitlist queue exists with more than one person in it, so FIFO order is visible
-- [ ] Re-running produces the same state rather than duplicates, and it still refuses to
+- [x] One vehicle has a maintenance blackout over a known range
+- [x] A waitlist queue exists with more than one person in it, so FIFO order is visible
+- [x] Re-running produces the same state rather than duplicates, and it still refuses to
       run when the environment is production
-- [ ] Every demo credential and every seeded identifier a demo needs is printed or
+- [x] Every demo credential and every seeded identifier a demo needs is printed or
       documented
 
 ## Coordination note
@@ -47,3 +47,17 @@ bookings of different shapes, the ended one being one-way and reviewable.
 Each of those exists to make one rule demonstrable rather than to look full. Keep that
 property when rebuilding it — a fixture where everything is enabled hides exactly the
 refusals a demo needs to show. `docs/SPEC.md` has the table.
+
+## Notes — Garfield, 2026-11-02
+
+**New additions to seed:**
+
+- **3 new users**: `alpha@example.com / alpha1234` (holds the SUV booking), `beta@example.com / beta1234` (waitlist #1), `gamma@example.com / gamma1234` (waitlist #2).
+- **Delivery radius**: Siam branch set to `delivery_radius_km=20`. Don Mueang Airport has none. Shows both the happy path and the "branch does not offer delivery" 409.
+- **SUV booking for alpha**: `today+3 to today+10`. SUV has 1 vehicle, so that 1 booking fills the class. Availability returns `free_count: 0` for that range. The waitlist can be joined immediately.
+- **Blackout window**: first Fast Wheels Economy vehicle (vehicles[0]), `today+2 to today+6`. Economy cap drops from 3 to 2 during that range. Verified: `free_count: 2` (not 3).
+- **Waitlist entries**: beta (`created_at - 10 min`) and gamma (`created_at - 5 min`) queue for SUV on the same range as alpha's booking. Verified: beta position 1, gamma position 2, both `state: waiting`.
+
+**All 5 new users imported with new imports**: `BlackoutWindow`, `WaitlistEntry` added to `app/seed.py`.
+
+**Verified**: seed idempotent (re-ran twice, same state). `uv run python -m app.smoke` → 182/182 passed.
