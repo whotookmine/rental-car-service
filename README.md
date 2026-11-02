@@ -82,22 +82,33 @@ After running `uv run python -m app.seed`:
 | Account | Email | Password | Notes |
 |---|---|---|---|
 | Admin | `admin@example.com` | `admin1234` | Can create and edit providers, see all bookings, delete any review |
-| Demo user | `demo@example.com` | `demo1234` | Has one ended booking (reviewable) and one upcoming booking |
+| Demo user | `demo@example.com` | `demo1234` | Has one ended booking (reviewable) and one upcoming booking; two seeded notifications |
 | Clean user | `fresh@example.com` | `fresh1234` | No bookings — useful for demonstrating registration and the booking flow from scratch |
+| Alpha | `alpha@example.com` | `alpha1234` | Holds the only SUV booking (today+3 to today+10), which fills that class |
+| Beta | `beta@example.com` | `beta1234` | Waitlist position 1 for SUV (same range as alpha's booking) |
+| Gamma | `gamma@example.com` | `gamma1234` | Waitlist position 2 for SUV |
 
 ### Postman collection
 
 Import `rental-car-service.postman_collection.json` into Postman. Run the folders in order:
 
-1. **00 — Setup** — must run first. Logs in as all three accounts and calls the API to discover the IDs that later folders depend on.
+1. **00 — Setup** — must run first. Logs in as all six accounts (admin, demo, fresh, alpha, beta, gamma) and calls the API to discover every ID the later folders depend on.
 2. **01 — Health** — confirms the API and database are up.
-3. **02 — Authentication** — register a new account, log in, inspect the token holder, log out. Logout is client-side: the server invalidates nothing; the token remains valid until it expires. This is by design, not an oversight — see the architecture decision on stateless tokens in `docs/adr/`.
+3. **02 — Authentication** — register a new account, log in, inspect the token holder, log out. Logout is client-side: the server invalidates nothing. See the architecture decision on stateless tokens in `docs/adr/`.
 4. **03 — Provider Browsing** — list active providers (with ratings), inspect a single provider, observe that the retired provider appears only with an admin token.
 5. **04 — Provider Management (Admin)** — create a provider, edit its details, retire it, reinstate it.
-6. **05 — Booking Lifecycle** — create two bookings for the demo user, list and inspect them, re-date one. Creating a booking requires `vehicle_class_id` and `pickup_branch_id` in addition to the dates; the Setup folder discovers these IDs automatically (see *The one divergence* below).
-7. **06 — Reviews** — create a review on the demo user's ended booking, edit it, delete it. The ended booking is reviewable; an active booking is not (see the negative case in folder 08).
+6. **05 — Booking Lifecycle** — create two bookings for the demo user, list and inspect them, re-date one. Creating a booking requires `vehicle_class_id` and `pickup_branch_id`; the Setup folder discovers these IDs automatically.
+7. **06 — Reviews** — create a review on the demo user's ended booking, edit it, delete it. The ended booking is reviewable; an active booking is not.
 8. **07 — Admin Oversight** — admin's view of all bookings, and admin deletion of any review.
-9. **08 — Negative Cases** — explicit demonstrations of every guard: the three-booking cap, reversed dates, the 31-day limit, a past start date, booking a retired provider, reviewing before the period ends, a second review attempt, and one user reaching for another user's booking.
+9. **08 — Negative Cases** — the three-booking cap, reversed dates, 31-day limit, past start date, booking a retired provider, reviewing before the period ends, a second review, and one user reaching for another user's booking.
+10. **09 — Availability** — `GET /providers/{id}/availability` returns free counts per class. Shows the seeded Economy blackout reducing the count from 3 to 2, and the alpha booking making SUV free_count=0.
+11. **10 — Fleet (Admin)** — vehicle class and vehicle CRUD. Vehicle reads are admin-only (plates are fleet administration, not renter information).
+12. **11 — Branches, Distances & One-Way** — list branches, inspect delivery radii, record a distance, enable/disable one-way routes. Negative case: Airport→Siam refused because only Siam→Airport is enabled in the seed.
+13. **12 — Quotations** — price estimates without reserving capacity. Demonstrates the rental line, the relocation line (one-way), and the delivery line. Unpriced class → 409.
+14. **13 — Delivery Bookings** — create a booking with `delivery_address` and `delivery_distance_km`. Negative cases: distance beyond radius (409), branch with no delivery radius (409), missing one half of the delivery pair (422).
+15. **14 — Maintenance (Blackout Windows)** — create a window on the SUV vehicle, show availability drops to 0, show booking refused, show overlap conflict, then delete the window and confirm availability restored.
+16. **15 — Waitlist & Claims** — full FIFO chain: alpha cancels → beta gets offered → beta declines → gamma gets offered → gamma converts. Negative cases: booking a full class, joining a non-full class, converting a claim twice.
+17. **16 — Notifications** — list the demo user's seeded notifications (newest first), mark one read (idempotent), reach for another user's notification (404).
 
 The base URL is a collection variable (`base_url`, default `http://localhost:8000`). All dates are computed by a collection-level pre-request script and are never hard-coded, so the collection does not go stale.
 
@@ -120,12 +131,12 @@ With the app running and the database seeded:
 uv run python -m app.smoke
 ```
 
-It calls the real API over HTTP and checks the status code of every answer — 80 checks
+It calls the real API over HTTP and checks the status code of every answer — 182 checks
 across authentication, providers, the booking lifecycle, capacity, one-way rentals,
 reviews, admin oversight and the admin-only fleet routes, negative cases included.
 
 ```
-80/80 checks passed, 0 skipped
+182/182 checks passed, 0 skipped
 ```
 
 It asserts **status codes only**, on purpose: response shapes change as the model grows,
@@ -155,8 +166,11 @@ aborts startup.
 | `JWT_SECRET_KEY` | *(none — required)* | Signing key for access tokens |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Access token lifetime |
 | `BUSINESS_TIMEZONE` | `Asia/Bangkok` | Timezone that defines the business day |
+| `CURRENCY` | `THB` | ISO-4217 currency code used on all monetary amounts |
+| `RELOCATION_RATE_PER_KM` | `50.00` | THB per km charged on one-way rentals |
+| `DELIVERY_TIERS` | See SPEC | JSON array of `{"max_km": N, "charge": "X.XX"}` tiers for delivery pricing |
 | `CLAIM_WINDOW_MINUTES` | `60` | How long a waitlist claim is held for whoever it was offered to. Set to `1` to demonstrate expiry |
-| `ENV` | `local` | Environment name |
+| `ENV` | `local` | Environment name — seed refuses to run when set to `production` |
 
 Alembic reads `DATABASE_URL` from the same settings object as the app; `alembic.ini`
 carries no URL of its own.
