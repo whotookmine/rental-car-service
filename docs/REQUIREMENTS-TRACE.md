@@ -17,10 +17,8 @@ database.
 
 ## Verdict in one line
 
-**Round one is complete and conforming. Round two is built: requirements 4, 5, 6 and 7 all
-have a verified surface.** There is one known defect, in 6a: a *quotation* does not check
-the branch's delivery radius, so it can price a delivery that the booking will refuse. The
-booking itself does check it. See row 6a.
+**Round one is complete and conforming. Round two is complete: requirements 4, 5, 6 and 7
+all have a verified surface.**
 
 ---
 
@@ -173,7 +171,7 @@ in the demo script and the Postman collection.
 | 5a | **Blocked** unless the provider enabled one-way service between those branches | ✅ built | Verified: the unenabled reverse direction 2→1 → `409 "One-way rental from 'Don Mueang Airport' to 'Siam' has not been enabled by this provider."` Enablement is directional on purpose |
 | 5b | **Automatically compute a relocation fee from the inter-branch distance** | ✅ built | Ticket 35. `POST /providers/{id}/quotations` adds a relocation line, `distance_km × RELOCATION_RATE_PER_KM` (default THB 50.00/km). Verified: one-way Siam→Don Mueang → `200`, lines `"Economy × 3 days @ THB 1200.00/day" 3600.00` + `"Relocation fee (27.5 km × THB 50.00/km)" 1375.00`, total `4975.00`. The same dates with no drop-off → rental line only, total `3600.00` |
 | **6** | Request vehicle delivery to and collection from an address | ✅ built | Ticket 37. `delivery_address` + `delivery_distance_km`, and optionally `collection_address`, on `POST /providers/{id}/bookings`. Verified: 20 km delivery at Siam → `201` with `"delivery_address":"10 Sukhumvit Rd","delivery_distance_km":20`; an address without a distance → `422 "delivery_address and delivery_distance_km must both be provided or both omitted"`. The distance is stated by the caller rather than geocoded from the address (no external geocoder) |
-| 6a | Validate the address is within the provider's delivery radius | ⚠️ built for bookings, **missing on quotations** | Tickets 36, 37. Radius is set per branch with `PUT /branches/{id}/delivery-radius` (Siam = 20 km; Don Mueang = none). Verified on booking: 25 km at Siam → `409 "Delivery distance 25 km exceeds the branch radius of 20 km."`; 20 km → `201` (inclusive); at Don Mueang → `409 "The pickup branch does not offer delivery."` **Defect:** the quotation does not check the radius. 30 km at Siam → `200` with an 800.00 delivery line, and 5 km at Don Mueang → `200` with a 200.00 line, though both bookings would be refused. This contradicts `docs/SPEC.md` ("the same … branch validation as booking creation applies") and ticket 38's criterion that the quoted figure match the booking |
+| 6a | Validate the address is within the provider's delivery radius | ✅ built | Tickets 36, 37. Radius is set per branch with `PUT /branches/{id}/delivery-radius` (Siam = 20 km; Don Mueang = none). One rule, `ensure_delivery_within_radius` in `app/bookings/rules.py`, is applied by **both** booking creation and quotation. Verified on booking: 25 km at Siam → `409 "Delivery distance 25 km exceeds the branch radius of 20 km."`; 20 km → `201` (inclusive); at Don Mueang → `409 "The pickup branch does not offer delivery."` Verified on quotation: 30 km and 21 km at Siam → `409` naming the 20 km radius; 20 km → `200` with a 400.00 line; 5 km at Don Mueang → `409 "The pickup branch does not offer delivery."` (Until 2026-11-18 the quotation skipped this check and priced deliveries the booking refused. Fixed on `fix/quotation-delivery-radius`) |
 | 6b | Distance-tiered delivery charge added to the quotation | ✅ built | Ticket 38. Tiers come from `DELIVERY_TIERS` (default ≤10 km 200.00, ≤20 km 400.00, ≤50 km 800.00, upper bound inclusive). Verified: 5 km → `"Delivery and collection (up to 10 km)" 200.00`, total `3800.00`; 15 km → `400.00`, total `4000.00`; one-way plus 5 km delivery → rental + relocation + delivery lines, total `5175.00` |
 | **7** | Schedule maintenance blackout windows **per vehicle** | ✅ built | Ticket 39. `POST`/`GET /vehicles/{id}/blackout_windows`, `GET`/`PUT`/`DELETE /blackout_windows/{id}`. Verified: scheduled 201, overlapping 409, adjacent 201, past 201, registered-user write 403, vehicle with a window `DELETE` 409 |
 | 7a | Blacked-out vehicles excluded from availability searches | ✅ built | Ticket 40. Verified: 3 cars with 1 blacked out reports 2; all 3 blacked out reports 0 with the class still listed; a window ending the day before the range costs nothing; cancelling restores the count immediately |
@@ -187,14 +185,9 @@ vehicles, waitlist_entries`. Delivery lives as columns on `branches` and `bookin
 
 ## What must land before this is graded
 
-All 51 tickets are done, including the Postman collection (22, extended by 49), the seed
-data (47) and the documents (48). One item remains:
-
-1. **The quotation must check the delivery radius** (row 6a). It is a few lines in
-   `app/quotations/router.py`, reusing the check `app/bookings/router.py` already applies
-   to bookings. That shares the rule rather than copying it. Until this is fixed, a grader
-   who asks for a quote before booking can be shown a price for a delivery the booking
-   then refuses.
+Nothing. All 51 tickets are done, including the Postman collection (22, extended by 49),
+the seed data (47) and the documents (48). The one defect the 2026-11-18 re-audit found, a
+quotation that skipped the delivery-radius check, is fixed (row 6a).
 
 ## How to re-run this audit
 

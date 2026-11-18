@@ -780,6 +780,13 @@ field, write one.
   falls in that tier. A distance beyond every tier is refused with 409 (not silently
   charged at the top tier). The charge covers both delivery and collection as one line.
   Omitting delivery fields means no delivery line.
+- Before pricing delivery, the quotation applies the **same radius check as booking
+  creation**, which both routes share as `ensure_delivery_within_radius` in
+  `app/bookings/rules.py`. A pickup branch with no radius → 409 "does not offer delivery";
+  a distance beyond the radius → 409 naming the radius; a distance equal to it is
+  accepted. So a quote never prices a delivery the booking would refuse. The radius check
+  runs before the tier lookup, so a branch radius smaller than the top tier is the binding
+  limit.
 - A vehicle class with no `daily_rate` set answers 409 ("unpriced").
 - A quotation reserves nothing; calling it twice with the same inputs returns the same
   result.

@@ -10,6 +10,7 @@ from app.auth.models import User
 from sqlalchemy import select
 
 from app.bookings.rules import (
+    ensure_delivery_within_radius,
     ensure_one_way_route_enabled,
     resolve_branch_for_provider,
     resolve_vehicle_class_for_provider,
@@ -40,8 +41,8 @@ router = APIRouter(tags=["quotations"])
         409: {
             "description": (
                 "The vehicle class or a branch belongs to a different provider, "
-                "a one-way combination has not been enabled, or the vehicle class "
-                "has no daily rate set."
+                "a one-way combination has not been enabled, the pickup branch "
+                "does not deliver that far, or the vehicle class has no daily rate set."
             )
         },
         422: {"description": "The vehicle class or a branch does not exist, or dates are invalid."},
@@ -67,6 +68,9 @@ def create_quotation(
         if dropoff_branch.id != pickup_branch.id:
             ensure_one_way_route_enabled(db, pickup_branch, dropoff_branch)
             is_one_way = True
+
+    if payload.delivery_distance_km is not None:
+        ensure_delivery_within_radius(pickup_branch, payload.delivery_distance_km)
 
     if vehicle_class.daily_rate is None:
         raise HTTPException(
