@@ -1,6 +1,6 @@
 """Bookings. Creation is nested under the provider a booking is made with."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from sqlalchemy import select
@@ -11,6 +11,7 @@ from app.bookings.dependencies import get_visible_booking_or_404
 from app.bookings.models import Booking
 from app.bookings.rules import (
     ensure_class_has_room,
+    ensure_delivery_within_radius,
     ensure_one_way_route_enabled,
     ensure_provider_is_active,
     ensure_reviewed_booking_stays_ended,
@@ -90,19 +91,7 @@ def create_booking(
     # Delivery validation. Both fields arrive together (schema enforces the pair).
     # The branch radius check is state, not shape, so it is a 409 here.
     if payload.delivery_address is not None:
-        if pickup_branch.delivery_radius_km is None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="The pickup branch does not offer delivery.",
-            )
-        if payload.delivery_distance_km > pickup_branch.delivery_radius_km:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    f"Delivery distance {payload.delivery_distance_km} km exceeds "
-                    f"the branch radius of {pickup_branch.delivery_radius_km} km."
-                ),
-            )
+        ensure_delivery_within_radius(pickup_branch, payload.delivery_distance_km)
 
     # The caller's own limit first, then the world's. It is the one they control
     # entirely -- they can free a slot by deleting a booking of their own -- and

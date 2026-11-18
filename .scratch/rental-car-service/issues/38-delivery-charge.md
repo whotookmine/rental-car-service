@@ -32,3 +32,9 @@ kilometre: the requirement says "distance-tiered", so a band of distances shares
   rule as booking: both or neither).
 - No migration needed — all config + quotation logic.
 - `DeliveryTier` model lives in `app/core/config.py` alongside the settings that use it.
+- **Fixed after merge (2026-11-18):** the quotation priced delivery without checking the
+  pickup branch's radius, so 30 km at a 20 km branch, or any distance at a branch with no
+  delivery, was quoted although the booking refused it. That broke "the figure on the
+  quotation matches what the booking is created with". The radius check moved from
+  `app/bookings/router.py` into `ensure_delivery_within_radius` in `app/bookings/rules.py`,
+  and both routes now call it. Found during the requirements-trace re-audit.

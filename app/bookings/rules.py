@@ -502,6 +502,27 @@ def ensure_one_way_route_enabled(
         )
 
 
+def ensure_delivery_within_radius(pickup_branch: Branch, distance_km: int) -> None:
+    """Raise 409 unless the pickup branch delivers at least this far (inclusive).
+
+    Shared by booking creation and quotation, so a quote never prices a delivery
+    the booking would refuse.
+    """
+    if pickup_branch.delivery_radius_km is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The pickup branch does not offer delivery.",
+        )
+    if distance_km > pickup_branch.delivery_radius_km:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Delivery distance {distance_km} km exceeds "
+                f"the branch radius of {pickup_branch.delivery_radius_km} km."
+            ),
+        )
+
+
 def ensure_reviewed_booking_stays_ended(db: Session, booking_id: int, new_end_date) -> None:
     """Refuse an edit that would leave a reviewed booking not yet ended.
 
