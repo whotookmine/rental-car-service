@@ -8,15 +8,19 @@ requirement and `docs/SPEC.md` is the design — but neither may contradict the 
 silently.
 
 Last audited against a running app and a real PostgreSQL on **2026-10-02**. Requirement 7's
-first clause was re-audited when ticket 39 landed; every other row dates from that audit. The schema was rebuilt from empty (`downgrade base` →
+first clause was re-audited when ticket 39 landed. Rows 5b, 6, 6a and 6b were re-audited on
+**2026-11-18**, after tickets 35–38 landed, the same way: rebuilt from empty, seeded, then
+exercised. Every other row dates from the first audit. The schema was rebuilt from empty (`downgrade base` →
 `upgrade head`, `alembic check` clean) and seeded with `uv run python -m app.seed` before
 the audit, so every result below came from the committed fixture and not from a hand-made
 database.
 
 ## Verdict in one line
 
-**Round one is complete and conforming.** Of round two, **requirements 4 and 7 are complete**;
-requirement 5 is built apart from its relocation fee; requirement 6 has no surface yet.
+**Round one is complete and conforming. Round two is built: requirements 4, 5, 6 and 7 all
+have a verified surface.** There is one known defect, in 6a: a *quotation* does not check
+the branch's delivery radius, so it can price a delivery that the booking will refuse. The
+booking itself does check it. See row 6a.
 
 ---
 
@@ -124,7 +128,7 @@ shown. The "Verified" column is the actual response, not a description of one.
 | Authenticate using username/password | ✅ | Email + password at `/auth/login`; bcrypt hashes; HS256 JWT, 60 minutes |
 | Keep the user's transactions confidential | ✅ | Bookings and reviews are scoped by the token's identity, never by a body or query field. Another user's booking answers `404`. No credential ever appears in a response: a `422` on registration renders the rejected password as `"password":"[redacted]"` |
 | Respond within 3 seconds | ✅ | Measured, warm, against the seeded database: `/health` 3.6 ms, `/providers` 5.8 ms, `/providers/1` 6.6 ms, `/bookings` 6.4 ms, `/providers/1/availability` 6.6 ms, `/providers/1/vehicle_classes` 9.2 ms. Three orders of magnitude inside the budget |
-| **Used and tested via Postman** | ✅ | `rental-car-service.postman_collection.json` committed at repo root. 42 requests across 9 folders: health, authentication, provider browsing, provider management, booking lifecycle, reviews, admin oversight, and negative cases (all 8 guards exercised explicitly). Dates computed by pre-request scripts; tokens and IDs captured from responses; base URL a variable. Verified green end-to-end against a freshly seeded database (ticket 22, owner Garfield) |
+| **Used and tested via Postman** | ✅ | `rental-car-service.postman_collection.json` committed at repo root. 42 requests across 9 folders when first built in ticket 22 (health, authentication, provider browsing, provider management, booking lifecycle, reviews, admin oversight, negative cases); extended in ticket 49 to 113 requests across 17 folders covering the round-two surface. Dates computed by pre-request scripts; tokens and IDs captured from responses; base URL a variable. Verified green end-to-end against a freshly seeded database (ticket 22, owner Garfield) |
 
 ---
 
@@ -165,40 +169,32 @@ in the demo script and the Postman collection.
 | 4b | Strict FIFO release on cancellation | ✅ built | Ticket 44. Verified: three queue, one cancellation reaches only the front; two cancellations reach the first then the second; an entry the release cannot use is skipped and keeps its place; two simultaneous cancellations reach two different people |
 | 4c | Time-limited exclusive claim window | ✅ built | Ticket 45. A live claim occupies a car exactly as a booking does, so the class reads as full to everyone else; the holder converts it despite that. Window is `CLAIM_WINDOW_MINUTES` (default 60), verified configurable. Expiry judged lazily, with no scheduler |
 | 4d | Expiry passes the claim to the next in the queue | ✅ built | Ticket 46. Verified end to end: three queue, the first lets the claim expire, the second declines, the third is offered it and books it. Lazy — nothing is offered on until the queue is next touched, proved with a week-old lapse. Two simultaneous reads of a stale queue leave exactly one live claim |
-| | | | *No waitlist route and no waitlist table: `/waitlist` and `/providers/1/waitlist` answer `404`. `/notifications` now exists and works, but has nothing to report* |
 | **5** | One-way rentals, drop-off differs from pickup | ✅ built | `dropoff_branch_id` on `POST /providers/{id}/bookings` (tickets 31, 32). Verified: enabled direction 1→2 → `201` |
 | 5a | **Blocked** unless the provider enabled one-way service between those branches | ✅ built | Verified: the unenabled reverse direction 2→1 → `409 "One-way rental from 'Don Mueang Airport' to 'Siam' has not been enabled by this provider."` Enablement is directional on purpose |
-| 5b | **Automatically compute a relocation fee from the inter-branch distance** | ❌ **not built** | Ticket 35. The quotation exists (ticket 34) and the distances exist (ticket 30), but the fee is not among the lines. Verified: a one-way quotation returns only `"Economy × 2 days @ THB 1200.00/day"`, total `2400.00` — **no relocation line** |
-| **6** | Request vehicle delivery to and collection from an address | ❌ not built | Ticket 37 |
-| 6a | Validate the address is within the provider's delivery radius | ❌ not built | Ticket 36 |
-| 6b | Distance-tiered delivery charge added to the quotation | ❌ not built | Ticket 38 |
+| 5b | **Automatically compute a relocation fee from the inter-branch distance** | ✅ built | Ticket 35. `POST /providers/{id}/quotations` adds a relocation line, `distance_km × RELOCATION_RATE_PER_KM` (default THB 50.00/km). Verified: one-way Siam→Don Mueang → `200`, lines `"Economy × 3 days @ THB 1200.00/day" 3600.00` + `"Relocation fee (27.5 km × THB 50.00/km)" 1375.00`, total `4975.00`. The same dates with no drop-off → rental line only, total `3600.00` |
+| **6** | Request vehicle delivery to and collection from an address | ✅ built | Ticket 37. `delivery_address` + `delivery_distance_km`, and optionally `collection_address`, on `POST /providers/{id}/bookings`. Verified: 20 km delivery at Siam → `201` with `"delivery_address":"10 Sukhumvit Rd","delivery_distance_km":20`; an address without a distance → `422 "delivery_address and delivery_distance_km must both be provided or both omitted"`. The distance is stated by the caller rather than geocoded from the address (no external geocoder) |
+| 6a | Validate the address is within the provider's delivery radius | ⚠️ built for bookings, **missing on quotations** | Tickets 36, 37. Radius is set per branch with `PUT /branches/{id}/delivery-radius` (Siam = 20 km; Don Mueang = none). Verified on booking: 25 km at Siam → `409 "Delivery distance 25 km exceeds the branch radius of 20 km."`; 20 km → `201` (inclusive); at Don Mueang → `409 "The pickup branch does not offer delivery."` **Defect:** the quotation does not check the radius. 30 km at Siam → `200` with an 800.00 delivery line, and 5 km at Don Mueang → `200` with a 200.00 line, though both bookings would be refused. This contradicts `docs/SPEC.md` ("the same … branch validation as booking creation applies") and ticket 38's criterion that the quoted figure match the booking |
+| 6b | Distance-tiered delivery charge added to the quotation | ✅ built | Ticket 38. Tiers come from `DELIVERY_TIERS` (default ≤10 km 200.00, ≤20 km 400.00, ≤50 km 800.00, upper bound inclusive). Verified: 5 km → `"Delivery and collection (up to 10 km)" 200.00`, total `3800.00`; 15 km → `400.00`, total `4000.00`; one-way plus 5 km delivery → rental + relocation + delivery lines, total `5175.00` |
 | **7** | Schedule maintenance blackout windows **per vehicle** | ✅ built | Ticket 39. `POST`/`GET /vehicles/{id}/blackout_windows`, `GET`/`PUT`/`DELETE /blackout_windows/{id}`. Verified: scheduled 201, overlapping 409, adjacent 201, past 201, registered-user write 403, vehicle with a window `DELETE` 409 |
 | 7a | Blacked-out vehicles excluded from availability searches | ✅ built | Ticket 40. Verified: 3 cars with 1 blacked out reports 2; all 3 blacked out reports 0 with the class still listed; a window ending the day before the range costs nothing; cancelling restores the count immediately |
 | 7b | Any booking overlapping a blackout is prevented | ✅ built | Ticket 41. Verified: booking a wholly blacked-out class 409, re-dating onto blacked-out days 409 for owner **and** admin, a class short through maintenance *and* bookings together 409 naming both, availability and booking agreeing in all three directions |
 
-Tables present: `users, providers, branches, branch_distances, one_way_routes,
-vehicle_classes, vehicles, bookings, reviews`. Nothing for waitlists, notifications,
-delivery or blackouts.
+Tables present (2026-11-18): `alembic_version, blackout_windows, bookings, branch_distances,
+branches, notifications, one_way_routes, providers, reviews, users, vehicle_classes,
+vehicles, waitlist_entries`. Delivery lives as columns on `branches` and `bookings`.
 
 ---
 
 ## What must land before this is graded
 
-In the order that matters:
+All 51 tickets are done, including the Postman collection (22, extended by 49), the seed
+data (47) and the documents (48). One item remains:
 
-0. ~~Tickets 41, 46~~ — **done. Requirements 4 and 7 are complete.** What remains of round
-   two is requirement 5's fee (ticket 35) and requirement 6 entirely (36–38), all Garfield's.
-1. **Ticket 22 — Postman collection and README.** The only *named* deliverable in the
-   non-functional requirements, and the only thing in round one that is missing. Owner
-   Garfield. Ticket 49 then extends the collection to the round-two surface.
-2. **Ticket 35 — relocation fee.** The only clause of an *otherwise finished* requirement
-   that is absent, which makes requirement 5 read as half-done.
-3. **Tickets 36–38, 39–41, 42–46** — requirements 6, 7 and 4, each untouched.
-4. **Ticket 47 — seed data for the new model**, and **ticket 48 — documents**, so a demo
-   shows the new surface rather than only the round-one one.
-5. ~~Ticket 50~~ — **done.** A nested provider now carries stored columns only, so it no
-   longer contradicts the catalogue. Requirement A2 names the *provider list*, which was
-   always correct and still is.
+1. **The quotation must check the delivery radius** (row 6a). It is a few lines in
+   `app/quotations/router.py`, reusing the check `app/bookings/router.py` already applies
+   to bookings. That shares the rule rather than copying it. Until this is fixed, a grader
+   who asks for a quote before booking can be shown a price for a delivery the booking
+   then refuses.
 
 ## How to re-run this audit
 
@@ -209,7 +205,7 @@ uv run python -m app.seed
 uv run uvicorn app.main:app --port 8000
 ```
 
-Then `uv run python -m app.smoke`, which re-checks 80 of the status codes in the matrix in
+Then `uv run python -m app.smoke`, which re-checks 182 status codes across the matrix in
 one command, and walk the rest by hand. Credentials come from the seed output: `admin@example.com/admin1234`,
 `demo@example.com/demo1234` (one ended and one upcoming booking),
 `fresh@example.com/fresh1234` (none). Note that the seed's dates are relative to the day it
