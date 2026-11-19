@@ -211,6 +211,10 @@
       "key": "alpha_booking_id",
       "value": "",
       "description": "Alpha's seeded SUV booking"
+    },
+    {
+      "key": "branch_classic_id",
+      "value": ""
     }
   ],
   "event": [
@@ -220,12 +224,10 @@
         "type": "text/javascript",
         "exec": [
           "// Recomputed before every request so dates never drift.",
-          "const d = new Date();",
-          "const fmt = n => {",
-          "    const r = new Date(d);",
-          "    r.setDate(r.getDate() + n);",
-          "    return r.toISOString().split('T')[0];",
-          "};",
+          "// Dates are Bangkok business days (UTC+7, no DST), matching the API's BUSINESS_TIMEZONE,",
+          "// so the collection works whatever timezone the machine running Postman is in.",
+          "const BKK = 7 * 3600 * 1000, DAY = 86400 * 1000;",
+          "const fmt = n => new Date(Date.now() + BKK + n * DAY).toISOString().split('T')[0];",
           "pm.collectionVariables.set('today',     fmt(0));",
           "pm.collectionVariables.set('yesterday', fmt(-1));",
           "pm.collectionVariables.set('tomorrow',  fmt(1));",
@@ -534,7 +536,7 @@
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
                   "const bookings = pm.response.json();",
                   "pm.test('two seeded bookings', () => pm.expect(bookings).to.have.lengthOf(2));",
-                  "const today = new Date().toISOString().split('T')[0];",
+                  "const today = pm.collectionVariables.get('today'); // Bangkok business day, from the collection pre-request script",
                   "const ended   = bookings.find(b => b.end_date < today);",
                   "const upcoming = bookings.find(b => b.end_date >= today);",
                   "pm.test('ended booking found',   () => pm.expect(ended).to.exist);",
@@ -733,7 +735,7 @@
           }
         },
         {
-          "name": "Discover SUV and Classic Classes",
+          "name": "Discover SUV Class",
           "description": "Finds SUV (full class, waitlist demo) and Classic (unpriced, quotation refusal demo) under Fast Wheels.",
           "event": [
             {
@@ -743,12 +745,9 @@
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
                   "const classes = pm.response.json();",
-                  "const suv     = classes.find(c => c.name === 'SUV');",
-                  "const classic = classes.find(c => c.name === 'Classic');",
-                  "pm.test('SUV class present',     () => pm.expect(suv).to.exist);",
-                  "pm.test('Classic class present', () => pm.expect(classic).to.exist);",
-                  "pm.collectionVariables.set('vc_suv_id',     suv.id);",
-                  "pm.collectionVariables.set('vc_classic_id', classic.id);"
+                  "const suv = classes.find(c => c.name === 'SUV');",
+                  "pm.test('SUV class present', () => pm.expect(suv).to.exist);",
+                  "if (suv) pm.collectionVariables.set('vc_suv_id', suv.id);"
                 ]
               }
             }
@@ -770,6 +769,83 @@
                 "providers",
                 "{{provider_id}}",
                 "vehicle_classes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Classic Class (Old Timer Cars)",
+          "description": "Classic is the seed's one unpriced class, used by '12 \u2014 Quotations / Unpriced Class \u2014 409'. It belongs to Old Timer Cars, the retired provider, not to Fast Wheels.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classic = pm.response.json().find(c => c.name === 'Classic');",
+                  "pm.test('Classic class present', () => pm.expect(classic).to.exist);",
+                  "pm.test('Classic is unpriced', () => pm.expect(classic.daily_rate).to.be.null);",
+                  "if (classic) pm.collectionVariables.set('vc_classic_id', classic.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_retired_id}}/vehicle_classes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_retired_id}}",
+                "vehicle_classes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Old Timer Cars Branch",
+          "description": "The pickup branch for the unpriced-class quotation. A quotation must name a branch of the same provider as the class.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const branches = pm.response.json();",
+                  "pm.test('at least one branch', () => pm.expect(branches.length).to.be.above(0));",
+                  "if (branches.length) pm.collectionVariables.set('branch_classic_id', branches[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_retired_id}}/branches",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_retired_id}}",
+                "branches"
               ]
             }
           }
@@ -1949,7 +2025,7 @@
                 "exec": [
                   "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
                   "const body = pm.response.json();",
-                  "pm.test('detail mentions limit', () => pm.expect(body.detail.toLowerCase()).to.include('maximum'));"
+                  "pm.test('detail names the 3-booking limit', () => pm.expect(body.detail).to.include('3 active bookings'));"
                 ]
               }
             }
@@ -3464,7 +3540,7 @@
                   "pm.test('lines array present', () => pm.expect(body.lines).to.be.an('array'));",
                   "pm.test('total present', () => pm.expect(body.total).to.have.property('amount'));",
                   "pm.test('rental line present', () => {",
-                  "    const rental = body.lines.find(l => l.description.toLowerCase().includes('rental'));",
+                  "    const rental = body.lines.find(l => l.description.includes('/day'));",
                   "    pm.expect(rental).to.exist;",
                   "});",
                   "pm.test('no relocation line', () => {",
@@ -3665,7 +3741,7 @@
         },
         {
           "name": "Unpriced Class \u2014 409",
-          "description": "Classic has no daily_rate set in the seed. Quotation refuses with 409 rather than quoting zero.",
+          "description": "Classic, under Old Timer Cars, has no daily_rate set in the seed. Quotation refuses with 409 rather than quoting zero.",
           "event": [
             {
               "listen": "test",
@@ -3674,7 +3750,8 @@
                 "exec": [
                   "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
                   "const body = pm.response.json();",
-                  "pm.test('detail mentions unpriced', () => pm.expect(body.detail.toLowerCase()).to.include('pric'));"
+                  "pm.test('detail mentions unpriced', () => pm.expect(body.detail.toLowerCase()).to.include('pric'));",
+                  "pm.test('refused for the missing rate, not a provider mismatch', () => pm.expect(body.detail).to.include('no daily rate'));"
                 ]
               }
             }
@@ -3692,19 +3769,19 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/quotations",
+              "raw": "{{base_url}}/providers/{{provider_retired_id}}/quotations",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "providers",
-                "{{provider_id}}",
+                "{{provider_retired_id}}",
                 "quotations"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\"vehicle_class_id\": {{vc_classic_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\"}",
+              "raw": "{\"vehicle_class_id\": {{vc_classic_id}}, \"pickup_branch_id\": {{branch_classic_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\"}",
               "options": {
                 "raw": {
                   "language": "json"
