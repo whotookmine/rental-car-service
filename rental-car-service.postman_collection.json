@@ -286,7 +286,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/auth/login"
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -325,7 +332,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/auth/login"
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -362,7 +376,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/auth/login"
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -405,7 +426,19 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers?include_retired=true"
+              "raw": "{{base_url}}/providers?include_retired=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "include_retired",
+                  "value": "true"
+                }
+              ]
             }
           }
         },
@@ -437,7 +470,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes"
+              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "vehicle_classes"
+              ]
             }
           }
         },
@@ -469,7 +510,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/branches"
+              "raw": "{{base_url}}/providers/{{provider_id}}/branches",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "branches"
+              ]
             }
           }
         },
@@ -505,7 +554,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings"
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
             }
           }
         },
@@ -541,7 +596,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/auth/login"
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -577,7 +639,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/auth/login"
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -613,7 +682,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/auth/login"
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -644,7 +720,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/branches"
+              "raw": "{{base_url}}/providers/{{provider_id}}/branches",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "branches"
+              ]
             }
           }
         },
@@ -678,7 +762,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes"
+              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "vehicle_classes"
+              ]
             }
           }
         },
@@ -708,7 +800,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicle_classes/{{vc_suv_id}}/vehicles"
+              "raw": "{{base_url}}/vehicle_classes/{{vc_suv_id}}/vehicles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicle_classes",
+                "{{vc_suv_id}}",
+                "vehicles"
+              ]
             }
           }
         },
@@ -738,7 +838,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries"
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
             }
           }
         },
@@ -768,7 +874,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries"
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
             }
           }
         },
@@ -798,7 +910,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings"
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
             }
           }
         }
@@ -827,7 +945,13 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/health"
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
             }
           }
         }
@@ -878,7 +1002,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/auth/register"
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
             }
           }
         },
@@ -917,7 +1048,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/auth/login"
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
           }
         },
@@ -947,7 +1085,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/me"
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
             }
           }
         },
@@ -976,7 +1121,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/auth/logout"
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
             }
           }
         }
@@ -1018,7 +1170,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers"
+              "raw": "{{base_url}}/providers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers"
+              ]
             }
           }
         },
@@ -1050,7 +1208,19 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers?include_retired=true"
+              "raw": "{{base_url}}/providers?include_retired=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "include_retired",
+                  "value": "true"
+                }
+              ]
             }
           }
         },
@@ -1084,7 +1254,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}"
+              "raw": "{{base_url}}/providers/{{provider_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}"
+              ]
             }
           }
         }
@@ -1132,7 +1309,13 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers"
+              "raw": "{{base_url}}/providers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers"
+              ]
             }
           }
         },
@@ -1173,7 +1356,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers/{{new_provider_id}}"
+              "raw": "{{base_url}}/providers/{{new_provider_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{new_provider_id}}"
+              ]
             }
           }
         },
@@ -1202,7 +1392,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{new_provider_id}}"
+              "raw": "{{base_url}}/providers/{{new_provider_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{new_provider_id}}"
+              ]
             }
           }
         },
@@ -1230,7 +1427,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{new_provider_id}}/reinstate"
+              "raw": "{{base_url}}/providers/{{new_provider_id}}/reinstate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{new_provider_id}}",
+                "reinstate"
+              ]
             }
           }
         }
@@ -1282,7 +1487,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             }
           }
         },
@@ -1323,7 +1536,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             }
           }
         },
@@ -1352,7 +1573,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings"
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
             }
           }
         },
@@ -1380,7 +1607,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/{{booking_id}}"
+              "raw": "{{base_url}}/bookings/{{booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{booking_id}}"
+              ]
             }
           }
         },
@@ -1423,7 +1657,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/bookings/{{booking_id}}"
+              "raw": "{{base_url}}/bookings/{{booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{booking_id}}"
+              ]
             }
           }
         }
@@ -1473,7 +1714,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews"
+              "raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{ended_booking_id}}",
+                "reviews"
+              ]
             }
           }
         },
@@ -1515,7 +1764,14 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/reviews/{{review_id}}"
+              "raw": "{{base_url}}/reviews/{{review_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "{{review_id}}"
+              ]
             }
           }
         },
@@ -1542,7 +1798,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/reviews/{{review_id}}"
+              "raw": "{{base_url}}/reviews/{{review_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "{{review_id}}"
+              ]
             }
           }
         }
@@ -1576,7 +1839,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings"
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
             }
           }
         },
@@ -1617,7 +1886,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews"
+              "raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{ended_booking_id}}",
+                "reviews"
+              ]
             }
           }
         },
@@ -1644,7 +1921,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/reviews/{{review_id}}"
+              "raw": "{{base_url}}/reviews/{{review_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "{{review_id}}"
+              ]
             }
           }
         }
@@ -1692,7 +1976,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             }
           }
         },
@@ -1732,7 +2024,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             }
           }
         },
@@ -1772,7 +2072,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             }
           }
         },
@@ -1812,7 +2120,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             }
           }
         },
@@ -1854,7 +2170,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_retired_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_retired_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_retired_id}}",
+                "bookings"
+              ]
             }
           }
         },
@@ -1896,7 +2220,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/bookings/{{upcoming_booking_id}}/reviews"
+              "raw": "{{base_url}}/bookings/{{upcoming_booking_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{upcoming_booking_id}}",
+                "reviews"
+              ]
             }
           }
         },
@@ -1937,7 +2269,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews"
+              "raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{ended_booking_id}}",
+                "reviews"
+              ]
             }
           }
         },
@@ -1979,7 +2319,15 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews"
+              "raw": "{{base_url}}/bookings/{{ended_booking_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{ended_booking_id}}",
+                "reviews"
+              ]
             }
           }
         },
@@ -2006,7 +2354,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/{{booking_id}}"
+              "raw": "{{base_url}}/bookings/{{booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{booking_id}}"
+              ]
             }
           }
         },
@@ -2033,7 +2388,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/reviews/{{review_id}}"
+              "raw": "{{base_url}}/reviews/{{review_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reviews",
+                "{{review_id}}"
+              ]
             }
           }
         },
@@ -2060,7 +2422,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/{{booking_id}}"
+              "raw": "{{base_url}}/bookings/{{booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{booking_id}}"
+              ]
             }
           }
         },
@@ -2087,7 +2456,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/{{booking_id_2}}"
+              "raw": "{{base_url}}/bookings/{{booking_id_2}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{booking_id_2}}"
+              ]
             }
           }
         }
@@ -2125,7 +2501,25 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}"
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_11}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_12}}"
+                }
+              ]
             }
           }
         },
@@ -2155,7 +2549,25 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_2}}&end_date={{in_6}}"
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_2}}&end_date={{in_6}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_2}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_6}}"
+                }
+              ]
             }
           }
         },
@@ -2186,7 +2598,25 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_3}}&end_date={{in_10}}"
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_3}}&end_date={{in_10}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_3}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_10}}"
+                }
+              ]
             }
           }
         },
@@ -2212,7 +2642,25 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_10}}&end_date={{tomorrow}}"
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_10}}&end_date={{tomorrow}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_10}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{tomorrow}}"
+                }
+              ]
             }
           }
         }
@@ -2249,7 +2697,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes"
+              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "vehicle_classes"
+              ]
             }
           }
         },
@@ -2279,7 +2735,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicle_classes/{{vc_economy_id}}"
+              "raw": "{{base_url}}/vehicle_classes/{{vc_economy_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicle_classes",
+                "{{vc_economy_id}}"
+              ]
             }
           }
         },
@@ -2313,7 +2776,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes"
+              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "vehicle_classes"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -2354,7 +2825,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicle_classes/{{vc_demo_id}}"
+              "raw": "{{base_url}}/vehicle_classes/{{vc_demo_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicle_classes",
+                "{{vc_demo_id}}"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -2396,7 +2874,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicle_classes/{{vc_demo_id}}/vehicles"
+              "raw": "{{base_url}}/vehicle_classes/{{vc_demo_id}}/vehicles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicle_classes",
+                "{{vc_demo_id}}",
+                "vehicles"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -2433,7 +2919,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicle_classes/{{vc_economy_id}}/vehicles"
+              "raw": "{{base_url}}/vehicle_classes/{{vc_economy_id}}/vehicles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicle_classes",
+                "{{vc_economy_id}}",
+                "vehicles"
+              ]
             }
           }
         },
@@ -2460,7 +2954,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicle_classes/{{vc_economy_id}}/vehicles"
+              "raw": "{{base_url}}/vehicle_classes/{{vc_economy_id}}/vehicles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicle_classes",
+                "{{vc_economy_id}}",
+                "vehicles"
+              ]
             }
           }
         },
@@ -2486,7 +2988,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicles/{{vehicle_demo_id}}"
+              "raw": "{{base_url}}/vehicles/{{vehicle_demo_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_demo_id}}"
+              ]
             }
           }
         },
@@ -2512,7 +3021,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicle_classes/{{vc_demo_id}}"
+              "raw": "{{base_url}}/vehicle_classes/{{vc_demo_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicle_classes",
+                "{{vc_demo_id}}"
+              ]
             }
           }
         }
@@ -2550,7 +3066,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/branches"
+              "raw": "{{base_url}}/providers/{{provider_id}}/branches",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "branches"
+              ]
             }
           }
         },
@@ -2579,7 +3103,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/branches/{{branch_siam_id}}"
+              "raw": "{{base_url}}/branches/{{branch_siam_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "branches",
+                "{{branch_siam_id}}"
+              ]
             }
           }
         },
@@ -2607,7 +3138,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/branches/{{branch_airport_id}}"
+              "raw": "{{base_url}}/branches/{{branch_airport_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "branches",
+                "{{branch_airport_id}}"
+              ]
             }
           }
         },
@@ -2639,7 +3177,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/branches/{{branch_airport_id}}/delivery-radius"
+              "raw": "{{base_url}}/branches/{{branch_airport_id}}/delivery-radius",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "branches",
+                "{{branch_airport_id}}",
+                "delivery-radius"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -2675,7 +3221,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/branches/{{branch_airport_id}}/delivery-radius"
+              "raw": "{{base_url}}/branches/{{branch_airport_id}}/delivery-radius",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "branches",
+                "{{branch_airport_id}}",
+                "delivery-radius"
+              ]
             }
           }
         },
@@ -2704,7 +3258,17 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/branch_distances/{{branch_siam_id}}/{{branch_airport_id}}"
+              "raw": "{{base_url}}/providers/{{provider_id}}/branch_distances/{{branch_siam_id}}/{{branch_airport_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "branch_distances",
+                "{{branch_siam_id}}",
+                "{{branch_airport_id}}"
+              ]
             }
           }
         },
@@ -2733,7 +3297,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/one_way_routes"
+              "raw": "{{base_url}}/providers/{{provider_id}}/one_way_routes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "one_way_routes"
+              ]
             }
           }
         },
@@ -2768,7 +3340,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -2810,7 +3390,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -2845,7 +3433,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/{{one_way_booking_id}}"
+              "raw": "{{base_url}}/bookings/{{one_way_booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{one_way_booking_id}}"
+              ]
             }
           }
         }
@@ -2893,7 +3488,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/quotations"
+              "raw": "{{base_url}}/providers/{{provider_id}}/quotations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "quotations"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -2937,7 +3540,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/quotations"
+              "raw": "{{base_url}}/providers/{{provider_id}}/quotations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "quotations"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -2981,7 +3592,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/quotations"
+              "raw": "{{base_url}}/providers/{{provider_id}}/quotations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "quotations"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3023,7 +3642,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/quotations"
+              "raw": "{{base_url}}/providers/{{provider_id}}/quotations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "quotations"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3065,7 +3692,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/quotations"
+              "raw": "{{base_url}}/providers/{{provider_id}}/quotations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "quotations"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3115,7 +3750,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3157,7 +3800,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3199,7 +3850,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3239,7 +3898,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3274,7 +3941,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/{{delivery_booking_id}}"
+              "raw": "{{base_url}}/bookings/{{delivery_booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{delivery_booking_id}}"
+              ]
             }
           }
         }
@@ -3309,7 +3983,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows"
+              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_suv_id}}",
+                "blackout_windows"
+              ]
             }
           }
         },
@@ -3344,7 +4026,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows"
+              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_suv_id}}",
+                "blackout_windows"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3381,7 +4071,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/blackout_windows/{{blackout_window_id}}"
+              "raw": "{{base_url}}/blackout_windows/{{blackout_window_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "blackout_windows",
+                "{{blackout_window_id}}"
+              ]
             }
           }
         },
@@ -3411,7 +4108,25 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}"
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_11}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_12}}"
+                }
+              ]
             }
           }
         },
@@ -3444,7 +4159,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3486,7 +4209,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows"
+              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_suv_id}}",
+                "blackout_windows"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3525,7 +4256,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows"
+              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_suv_id}}",
+                "blackout_windows"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3567,7 +4306,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/blackout_windows/{{blackout_window_id}}"
+              "raw": "{{base_url}}/blackout_windows/{{blackout_window_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "blackout_windows",
+                "{{blackout_window_id}}"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3603,7 +4349,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/blackout_windows/{{blackout_window_id}}"
+              "raw": "{{base_url}}/blackout_windows/{{blackout_window_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "blackout_windows",
+                "{{blackout_window_id}}"
+              ]
             }
           }
         },
@@ -3633,7 +4386,25 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}"
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_11}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_12}}"
+                }
+              ]
             }
           }
         }
@@ -3672,7 +4443,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/bookings"
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3714,7 +4493,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/waitlist_entries"
+              "raw": "{{base_url}}/providers/{{provider_id}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "waitlist_entries"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3758,7 +4545,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/waitlist_entries"
+              "raw": "{{base_url}}/providers/{{provider_id}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "waitlist_entries"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -3797,7 +4592,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries"
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
             }
           }
         },
@@ -3824,7 +4625,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_fresh_id}}"
+              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_fresh_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries",
+                "{{waitlist_entry_fresh_id}}"
+              ]
             }
           }
         },
@@ -3854,7 +4662,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries"
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
             }
           }
         },
@@ -3883,7 +4697,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries"
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
             }
           }
         },
@@ -3910,7 +4730,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/{{alpha_booking_id}}"
+              "raw": "{{base_url}}/bookings/{{alpha_booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{alpha_booking_id}}"
+              ]
             }
           }
         },
@@ -3941,7 +4768,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries"
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
             }
           }
         },
@@ -3970,7 +4803,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_beta_id}}/claim"
+              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_beta_id}}/claim",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries",
+                "{{waitlist_entry_beta_id}}",
+                "claim"
+              ]
             }
           }
         },
@@ -3999,7 +4840,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries"
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
             }
           }
         },
@@ -4034,7 +4881,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_gamma_id}}/claim"
+              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_gamma_id}}/claim",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries",
+                "{{waitlist_entry_gamma_id}}",
+                "claim"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -4072,7 +4927,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries"
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
             }
           }
         },
@@ -4105,7 +4966,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_gamma_id}}/claim"
+              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_gamma_id}}/claim",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries",
+                "{{waitlist_entry_gamma_id}}",
+                "claim"
+              ]
             },
             "body": {
               "mode": "raw",
@@ -4140,7 +5009,14 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/bookings/{{claim_booking_id}}"
+              "raw": "{{base_url}}/bookings/{{claim_booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{claim_booking_id}}"
+              ]
             }
           }
         }
@@ -4185,7 +5061,13 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/notifications"
+              "raw": "{{base_url}}/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications"
+              ]
             }
           }
         },
@@ -4214,7 +5096,15 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/notifications/{{notification_id}}/read"
+              "raw": "{{base_url}}/notifications/{{notification_id}}/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}",
+                "read"
+              ]
             }
           }
         },
@@ -4243,34 +5133,51 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/notifications/{{notification_id}}/read"
+              "raw": "{{base_url}}/notifications/{{notification_id}}/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}",
+                "read"
+              ]
             }
           }
         },
         {
           "name": "Another User\u2019s Notification \u2014 404",
-          "description": "Notifications are addressed to a person. An admin reaching for the demo user's notification also gets 404.",
+          "description": "Notifications are addressed to a person. The fresh user tries to mark the demo user's notification read and gets 404, the same answer as for a notification that does not exist, so ids cannot be enumerated.",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('refused by the ownership check, not a missing route', () => pm.expect(pm.response.json().detail).to.eql('Notification not found.'));"
                 ]
               }
             }
           ],
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{admin_token}}"
+                "value": "Bearer {{fresh_token}}"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/notifications/{{notification_id}}"
+              "raw": "{{base_url}}/notifications/{{notification_id}}/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}",
+                "read"
+              ]
             }
           }
         }
