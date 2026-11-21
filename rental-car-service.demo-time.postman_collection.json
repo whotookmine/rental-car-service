@@ -1,0 +1,2154 @@
+{
+  "info": {
+    "_postman_id": "4c859471-7516-47f0-a494-d7a3a41cfbe4",
+    "name": "Rental Car Service \u2014 Demo (Time)",
+    "description": "Time's demo of round two (requirements 4\u20137), one folder per requirement.\n\nBefore: re-seed (uv run python -m app.seed), run 00 \u2014 Setup once, then click down each folder in order: \u0e02\u0e49\u0e2d 7 \u2192 5 \u2192 6 \u2192 4.\nNeeds a fresh seed: do not run folders 09\u201316 of the main collection first. Garfield's folders 01\u201308 are fine to run before it.\nEach request description says what to point at in the response.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": ""
+    },
+    {
+      "key": "demo_token",
+      "value": ""
+    },
+    {
+      "key": "fresh_token",
+      "value": ""
+    },
+    {
+      "key": "provider_id",
+      "value": "",
+      "description": "Fast Wheels (active)"
+    },
+    {
+      "key": "provider_city_id",
+      "value": "",
+      "description": "City Rentals (active)"
+    },
+    {
+      "key": "provider_budget_id",
+      "value": "",
+      "description": "Budget Drive (active)"
+    },
+    {
+      "key": "provider_retired_id",
+      "value": "",
+      "description": "Old Timer Cars (retired)"
+    },
+    {
+      "key": "vc_economy_id",
+      "value": "",
+      "description": "Economy class under Fast Wheels"
+    },
+    {
+      "key": "branch_siam_id",
+      "value": "",
+      "description": "Siam branch under Fast Wheels"
+    },
+    {
+      "key": "booking_id",
+      "value": ""
+    },
+    {
+      "key": "booking_id_2",
+      "value": ""
+    },
+    {
+      "key": "ended_booking_id",
+      "value": "",
+      "description": "Demo user's seeded ended booking"
+    },
+    {
+      "key": "upcoming_booking_id",
+      "value": "",
+      "description": "Demo user's seeded upcoming booking"
+    },
+    {
+      "key": "review_id",
+      "value": ""
+    },
+    {
+      "key": "new_provider_id",
+      "value": ""
+    },
+    {
+      "key": "today",
+      "value": ""
+    },
+    {
+      "key": "yesterday",
+      "value": ""
+    },
+    {
+      "key": "tomorrow",
+      "value": ""
+    },
+    {
+      "key": "in_7",
+      "value": ""
+    },
+    {
+      "key": "in_10",
+      "value": ""
+    },
+    {
+      "key": "in_15",
+      "value": ""
+    },
+    {
+      "key": "in_20",
+      "value": ""
+    },
+    {
+      "key": "in_30",
+      "value": ""
+    },
+    {
+      "key": "in_31",
+      "value": ""
+    },
+    {
+      "key": "in_32",
+      "value": ""
+    },
+    {
+      "key": "alpha_token",
+      "value": ""
+    },
+    {
+      "key": "beta_token",
+      "value": ""
+    },
+    {
+      "key": "gamma_token",
+      "value": ""
+    },
+    {
+      "key": "branch_airport_id",
+      "value": "",
+      "description": "Don Mueang Airport branch under Fast Wheels"
+    },
+    {
+      "key": "vc_suv_id",
+      "value": "",
+      "description": "SUV class under Fast Wheels"
+    },
+    {
+      "key": "vc_classic_id",
+      "value": "",
+      "description": "Classic class under Fast Wheels (unpriced)"
+    },
+    {
+      "key": "vehicle_suv_id",
+      "value": "",
+      "description": "The single SUV vehicle"
+    },
+    {
+      "key": "blackout_window_id",
+      "value": ""
+    },
+    {
+      "key": "one_way_booking_id",
+      "value": ""
+    },
+    {
+      "key": "delivery_booking_id",
+      "value": ""
+    },
+    {
+      "key": "waitlist_entry_beta_id",
+      "value": ""
+    },
+    {
+      "key": "waitlist_entry_gamma_id",
+      "value": ""
+    },
+    {
+      "key": "waitlist_entry_fresh_id",
+      "value": ""
+    },
+    {
+      "key": "claim_booking_id",
+      "value": ""
+    },
+    {
+      "key": "in_2",
+      "value": ""
+    },
+    {
+      "key": "in_3",
+      "value": ""
+    },
+    {
+      "key": "in_5",
+      "value": ""
+    },
+    {
+      "key": "in_6",
+      "value": ""
+    },
+    {
+      "key": "in_11",
+      "value": ""
+    },
+    {
+      "key": "in_12",
+      "value": ""
+    },
+    {
+      "key": "notification_id",
+      "value": ""
+    },
+    {
+      "key": "alpha_booking_id",
+      "value": "",
+      "description": "Alpha's seeded SUV booking"
+    },
+    {
+      "key": "branch_classic_id",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Recomputed before every request so dates never drift.",
+          "// Dates are Bangkok business days (UTC+7, no DST), matching the API's BUSINESS_TIMEZONE,",
+          "// so the collection works whatever timezone the machine running Postman is in.",
+          "const BKK = 7 * 3600 * 1000, DAY = 86400 * 1000;",
+          "const fmt = n => new Date(Date.now() + BKK + n * DAY).toISOString().split('T')[0];",
+          "pm.collectionVariables.set('today',     fmt(0));",
+          "pm.collectionVariables.set('yesterday', fmt(-1));",
+          "pm.collectionVariables.set('tomorrow',  fmt(1));",
+          "pm.collectionVariables.set('in_7',      fmt(7));",
+          "pm.collectionVariables.set('in_10',     fmt(10));",
+          "pm.collectionVariables.set('in_15',     fmt(15));",
+          "pm.collectionVariables.set('in_20',     fmt(20));",
+          "pm.collectionVariables.set('in_30',     fmt(30));",
+          "pm.collectionVariables.set('in_31',     fmt(31));",
+          "pm.collectionVariables.set('in_32',     fmt(32));",
+          "pm.collectionVariables.set('in_2',  fmt(2));",
+          "pm.collectionVariables.set('in_3',  fmt(3));",
+          "pm.collectionVariables.set('in_5',  fmt(5));",
+          "pm.collectionVariables.set('in_6',  fmt(6));",
+          "pm.collectionVariables.set('in_11', fmt(11));",
+          "pm.collectionVariables.set('in_12', fmt(12));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 \u2014 Setup",
+      "description": "Run this folder first. It logs in as all three accounts and discovers the IDs the later folders need. All other folders depend on the variables it sets.",
+      "item": [
+        {
+          "name": "Login \u2014 Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('access_token present', () => pm.expect(body.access_token).to.be.a('string').and.not.empty);",
+                  "pm.test('role is admin', () => pm.expect(body.user.role).to.eql('admin'));",
+                  "pm.collectionVariables.set('admin_token', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"admin@example.com\", \"password\": \"admin1234\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login \u2014 Demo User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('access_token present', () => pm.expect(body.access_token).to.be.a('string').and.not.empty);",
+                  "pm.test('role is user', () => pm.expect(body.user.role).to.eql('user'));",
+                  "pm.collectionVariables.set('demo_token', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"demo@example.com\", \"password\": \"demo1234\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login \u2014 Fresh User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('fresh_token', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"fresh@example.com\", \"password\": \"fresh1234\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Providers",
+          "description": "Lists all providers including the retired one (admin only). Stores the four seeded provider IDs for use in later requests.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const providers = pm.response.json();",
+                  "pm.test('at least the four seeded providers', () => pm.expect(providers.length).to.be.at.least(4)); // Garfield's folder 04 may have added one",
+                  "const fw = providers.find(p => p.name === 'Fast Wheels');",
+                  "const cr = providers.find(p => p.name === 'City Rentals');",
+                  "const bd = providers.find(p => p.name === 'Budget Drive');",
+                  "const ot = providers.find(p => p.name === 'Old Timer Cars');",
+                  "pm.test('all four seeded providers present', () => {",
+                  "    pm.expect(fw).to.exist;",
+                  "    pm.expect(cr).to.exist;",
+                  "    pm.expect(bd).to.exist;",
+                  "    pm.expect(ot).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set('provider_id',         fw.id);",
+                  "pm.collectionVariables.set('provider_city_id',    cr.id);",
+                  "pm.collectionVariables.set('provider_budget_id',  bd.id);",
+                  "pm.collectionVariables.set('provider_retired_id', ot.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers?include_retired=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers"
+              ],
+              "query": [
+                {
+                  "key": "include_retired",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Fast Wheels Vehicle Classes",
+          "description": "Lists vehicle classes under Fast Wheels. Stores the first class (Economy) ID.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classes = pm.response.json();",
+                  "pm.test('at least one class', () => pm.expect(classes.length).to.be.above(0));",
+                  "const economy = classes.find(c => c.name === 'Economy');",
+                  "pm.test('Economy class present', () => pm.expect(economy).to.exist);",
+                  "pm.collectionVariables.set('vc_economy_id', economy.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "vehicle_classes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Fast Wheels Branches",
+          "description": "Lists branches under Fast Wheels. Stores the Siam branch ID.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const branches = pm.response.json();",
+                  "pm.test('at least one branch', () => pm.expect(branches.length).to.be.above(0));",
+                  "const siam = branches.find(b => b.name === 'Siam');",
+                  "pm.test('Siam branch present', () => pm.expect(siam).to.exist);",
+                  "pm.collectionVariables.set('branch_siam_id', siam.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/branches",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "branches"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Demo User's Bookings",
+          "description": "Lists the demo user's bookings. Stores the ended booking ID (for the review demo) and the upcoming booking ID (for the negative case: reviewing before period ends).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const bookings = pm.response.json();",
+                  "pm.test('two seeded bookings', () => pm.expect(bookings).to.have.lengthOf(2));",
+                  "const today = pm.collectionVariables.get('today'); // Bangkok business day, from the collection pre-request script",
+                  "const ended   = bookings.find(b => b.end_date < today);",
+                  "const upcoming = bookings.find(b => b.end_date >= today);",
+                  "pm.test('ended booking found',   () => pm.expect(ended).to.exist);",
+                  "pm.test('upcoming booking found', () => pm.expect(upcoming).to.exist);",
+                  "pm.collectionVariables.set('ended_booking_id',   ended.id);",
+                  "pm.collectionVariables.set('upcoming_booking_id', upcoming.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login \u2014 Alpha User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('alpha_token', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"alpha@example.com\", \"password\": \"alpha1234\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login \u2014 Beta User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('beta_token', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"beta@example.com\", \"password\": \"beta1234\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login \u2014 Gamma User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('gamma_token', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"gamma@example.com\", \"password\": \"gamma1234\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Airport Branch",
+          "description": "Finds the Don Mueang Airport branch ID under Fast Wheels.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const branches = pm.response.json();",
+                  "const airport = branches.find(b => b.name.toLowerCase().includes('airport') || b.name.toLowerCase().includes('don mueang'));",
+                  "pm.test('airport branch found', () => pm.expect(airport).to.exist);",
+                  "pm.collectionVariables.set('branch_airport_id', airport.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/branches",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "branches"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover SUV Class",
+          "description": "Finds SUV (full class, waitlist demo) and Classic (unpriced, quotation refusal demo) under Fast Wheels.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classes = pm.response.json();",
+                  "const suv = classes.find(c => c.name === 'SUV');",
+                  "pm.test('SUV class present', () => pm.expect(suv).to.exist);",
+                  "if (suv) pm.collectionVariables.set('vc_suv_id', suv.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/vehicle_classes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "vehicle_classes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Classic Class (Old Timer Cars)",
+          "description": "Classic is the seed's one unpriced class, used by '12 \u2014 Quotations / Unpriced Class \u2014 409'. It belongs to Old Timer Cars, the retired provider, not to Fast Wheels.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classic = pm.response.json().find(c => c.name === 'Classic');",
+                  "pm.test('Classic class present', () => pm.expect(classic).to.exist);",
+                  "pm.test('Classic is unpriced', () => pm.expect(classic.daily_rate).to.be.null);",
+                  "if (classic) pm.collectionVariables.set('vc_classic_id', classic.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_retired_id}}/vehicle_classes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_retired_id}}",
+                "vehicle_classes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Old Timer Cars Branch",
+          "description": "The pickup branch for the unpriced-class quotation. A quotation must name a branch of the same provider as the class.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const branches = pm.response.json();",
+                  "pm.test('at least one branch', () => pm.expect(branches.length).to.be.above(0));",
+                  "if (branches.length) pm.collectionVariables.set('branch_classic_id', branches[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_retired_id}}/branches",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_retired_id}}",
+                "branches"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover SUV Vehicle",
+          "description": "Finds the single vehicle in the SUV class. Needed for creating a demo blackout window.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const vehicles = pm.response.json();",
+                  "pm.test('at least one SUV vehicle', () => pm.expect(vehicles.length).to.be.above(0));",
+                  "pm.collectionVariables.set('vehicle_suv_id', vehicles[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vehicle_classes/{{vc_suv_id}}/vehicles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicle_classes",
+                "{{vc_suv_id}}",
+                "vehicles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Beta Waitlist Entry",
+          "description": "Retrieves beta's seeded waitlist entry for the SUV class. Needed for the FIFO chain in folder 15.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const entries = pm.response.json();",
+                  "pm.test('beta has a waitlist entry', () => pm.expect(entries.length).to.be.above(0));",
+                  "pm.collectionVariables.set('waitlist_entry_beta_id', entries[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{beta_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Gamma Waitlist Entry",
+          "description": "Retrieves gamma's seeded waitlist entry for the SUV class.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const entries = pm.response.json();",
+                  "pm.test('gamma has a waitlist entry', () => pm.expect(entries.length).to.be.above(0));",
+                  "pm.collectionVariables.set('waitlist_entry_gamma_id', entries[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gamma_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Discover Alpha's SUV Booking",
+          "description": "Alpha holds the only SUV booking (today+3 to today+10). Needed for the FIFO chain in folder 15.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const bookings = pm.response.json();",
+                  "pm.test('alpha has at least one booking', () => pm.expect(bookings.length).to.be.above(0));",
+                  "pm.collectionVariables.set('alpha_booking_id', bookings[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{alpha_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "\u0e02\u0e49\u0e2d 7 \u2014 Blackout (\u0e0b\u0e48\u0e2d\u0e21\u0e1a\u0e33\u0e23\u0e38\u0e07\u0e23\u0e32\u0e22\u0e04\u0e31\u0e19)",
+      "item": [
+        {
+          "name": "7.1 \u0e23\u0e16\u0e27\u0e48\u0e32\u0e07\u0e0a\u0e48\u0e27\u0e07\u0e1b\u0e01\u0e15\u0e34 \u2014 Economy 3",
+          "description": "\u0e0a\u0e35\u0e49: Economy free_count = 3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classes = pm.response.json();",
+                  "pm.test('returns array', () => pm.expect(classes).to.be.an('array'));",
+                  "const economy = classes.find(c => c.name === 'Economy');",
+                  "pm.test('Economy present', () => pm.expect(economy).to.exist);",
+                  "pm.test('Economy has free cars', () => pm.expect(economy.free_count).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_11}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_12}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.2 \u0e0a\u0e48\u0e27\u0e07\u0e17\u0e35\u0e48\u0e21\u0e35\u0e23\u0e16\u0e40\u0e02\u0e49\u0e32\u0e0b\u0e48\u0e2d\u0e21 \u2014 Economy 2",
+          "description": "\u0e0a\u0e35\u0e49: Economy free_count = 2 \u0e40\u0e1e\u0e23\u0e32\u0e30\u0e21\u0e35\u0e04\u0e31\u0e19\u0e2b\u0e19\u0e36\u0e48\u0e07\u0e40\u0e02\u0e49\u0e32\u0e0b\u0e48\u0e2d\u0e21 (seed) \u2705 \u0e44\u0e21\u0e48\u0e19\u0e31\u0e1a\u0e43\u0e19\u0e1c\u0e25\u0e04\u0e49\u0e19\u0e2b\u0e32",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classes = pm.response.json();",
+                  "const economy = classes.find(c => c.name === 'Economy');",
+                  "pm.test('Economy free_count reduced by blackout', () => pm.expect(economy.free_count).to.be.below(3));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_2}}&end_date={{in_6}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_2}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_6}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.3 Admin \u0e15\u0e31\u0e49\u0e07\u0e0a\u0e48\u0e27\u0e07\u0e0b\u0e48\u0e2d\u0e21\u0e43\u0e2b\u0e49 SUV \u2014 201",
+          "description": "\u0e0a\u0e35\u0e49: \u0e1c\u0e39\u0e01\u0e01\u0e31\u0e1a vehicle_id \u0e04\u0e37\u0e2d\u0e23\u0e32\u0e22\u0e04\u0e31\u0e19 \u0e44\u0e21\u0e48\u0e43\u0e0a\u0e48\u0e23\u0e32\u0e22\u0e23\u0e38\u0e48\u0e19",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('start_date matches', () => pm.expect(body.start_date).to.eql(pm.collectionVariables.get('in_11')));",
+                  "pm.test('end_date matches',   () => pm.expect(body.end_date).to.eql(pm.collectionVariables.get('in_12')));",
+                  "pm.collectionVariables.set('blackout_window_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vehicles/{{vehicle_suv_id}}/blackout_windows",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{vehicle_suv_id}}",
+                "blackout_windows"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "7.4 SUV \u0e27\u0e48\u0e32\u0e07 0",
+          "description": "\u0e0a\u0e35\u0e49: SUV free_count = 0 \u2705 \u0e23\u0e16\u0e17\u0e35\u0e48\u0e0b\u0e48\u0e2d\u0e21\u0e44\u0e21\u0e48\u0e41\u0e2a\u0e14\u0e07\u0e43\u0e19\u0e1c\u0e25\u0e04\u0e49\u0e19\u0e2b\u0e32",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classes = pm.response.json();",
+                  "const suv = classes.find(c => c.name === 'SUV');",
+                  "pm.test('SUV free_count is 0 (maintenance)', () => pm.expect(suv.free_count).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_11}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_12}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.5 \u0e08\u0e2d\u0e07\u0e17\u0e31\u0e1a\u0e0a\u0e48\u0e27\u0e07\u0e0b\u0e48\u0e2d\u0e21 \u2014 409",
+          "description": "\u0e0a\u0e35\u0e49: 409 \u0e1a\u0e2d\u0e01\u0e27\u0e48\u0e32\u0e23\u0e16\u0e40\u0e02\u0e49\u0e32\u0e0b\u0e48\u0e2d\u0e21 \u2705 \u0e08\u0e2d\u0e07\u0e17\u0e31\u0e1a\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('detail mentions maintenance', () => pm.expect(body.detail.toLowerCase()).to.include('maintenance'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{fresh_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_suv_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "7.6 \u0e25\u0e1a\u0e0a\u0e48\u0e27\u0e07\u0e0b\u0e48\u0e2d\u0e21 \u2014 204",
+          "description": "",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/blackout_windows/{{blackout_window_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "blackout_windows",
+                "{{blackout_window_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7.7 SUV \u0e01\u0e25\u0e31\u0e1a\u0e21\u0e32\u0e27\u0e48\u0e32\u0e07 1",
+          "description": "\u0e0a\u0e35\u0e49: free_count = 1 \u0e01\u0e25\u0e31\u0e1a\u0e21\u0e32\u0e17\u0e31\u0e19\u0e17\u0e35",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classes = pm.response.json();",
+                  "const suv = classes.find(c => c.name === 'SUV');",
+                  "pm.test('SUV free_count restored to 1', () => pm.expect(suv.free_count).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_11}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_12}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "\u0e02\u0e49\u0e2d 5 \u2014 One-way (\u0e04\u0e37\u0e19\u0e23\u0e16\u0e04\u0e19\u0e25\u0e30\u0e2a\u0e32\u0e02\u0e32)",
+      "item": [
+        {
+          "name": "5.1 \u0e23\u0e30\u0e22\u0e30\u0e17\u0e32\u0e07 Siam \u2194 Airport",
+          "description": "\u0e0a\u0e35\u0e49: 27.5 km \u0e43\u0e0a\u0e49\u0e04\u0e34\u0e14\u0e04\u0e48\u0e32 relocation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('distance_km present', () => pm.expect(body.distance_km).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/branch_distances/{{branch_siam_id}}/{{branch_airport_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "branch_distances",
+                "{{branch_siam_id}}",
+                "{{branch_airport_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.2 \u0e40\u0e2a\u0e49\u0e19\u0e17\u0e32\u0e07\u0e17\u0e35\u0e48\u0e40\u0e1b\u0e34\u0e14\u0e44\u0e27\u0e49",
+          "description": "\u0e0a\u0e35\u0e49: \u0e40\u0e1b\u0e34\u0e14\u0e41\u0e04\u0e48 Siam \u2192 Airport \u0e17\u0e34\u0e28\u0e40\u0e14\u0e35\u0e22\u0e27",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const routes = pm.response.json();",
+                  "pm.test('at least one route', () => pm.expect(routes.length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/one_way_routes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "one_way_routes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5.3 \u0e08\u0e2d\u0e07 Siam \u2192 Airport \u2014 201",
+          "description": "\u0e0a\u0e35\u0e49: dropoff_branch \u0e15\u0e48\u0e32\u0e07\u0e08\u0e32\u0e01 pickup_branch \u2705 \u0e40\u0e0a\u0e48\u0e32 one-way \u0e44\u0e14\u0e49",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('pickup_branch present',  () => pm.expect(body.pickup_branch).to.exist);",
+                  "pm.test('dropoff_branch present', () => pm.expect(body.dropoff_branch).to.exist);",
+                  "pm.collectionVariables.set('one_way_booking_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{fresh_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"dropoff_branch_id\": {{branch_airport_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "5.4 \u0e08\u0e2d\u0e07 Airport \u2192 Siam \u2014 409",
+          "description": "\u0e0a\u0e35\u0e49: \"has not been enabled\" \u2705 \u0e1a\u0e25\u0e47\u0e2d\u0e01\u0e16\u0e49\u0e32\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e40\u0e1b\u0e34\u0e14\u0e40\u0e2a\u0e49\u0e19\u0e17\u0e32\u0e07",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('detail mentions one-way', () => pm.expect(body.detail.toLowerCase()).to.include('one-way'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{fresh_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_airport_id}}, \"dropoff_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "5.5 \u0e43\u0e1a\u0e40\u0e2a\u0e19\u0e2d\u0e23\u0e32\u0e04\u0e32 \u2014 \u0e04\u0e48\u0e32 relocation",
+          "description": "\u0e0a\u0e35\u0e49: \u0e1a\u0e23\u0e23\u0e17\u0e31\u0e14 Relocation fee 27.5 km \u00d7 50 = 1,375 \u0e1a\u0e32\u0e17 \u2705 \u0e04\u0e34\u0e14\u0e2d\u0e31\u0e15\u0e42\u0e19\u0e21\u0e31\u0e15\u0e34\u0e08\u0e32\u0e01\u0e23\u0e30\u0e22\u0e30\u0e17\u0e32\u0e07",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const reloc = body.lines.find(l => l.description.toLowerCase().includes('relocation'));",
+                  "pm.test('relocation line present', () => pm.expect(reloc).to.exist);",
+                  "pm.test('relocation amount is a string', () => pm.expect(reloc.amount.amount).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/quotations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "quotations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"dropoff_branch_id\": {{branch_airport_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "\u0e02\u0e49\u0e2d 6 \u2014 Delivery (\u0e2a\u0e48\u0e07\u0e23\u0e16\u0e16\u0e36\u0e07\u0e17\u0e35\u0e48)",
+      "item": [
+        {
+          "name": "6.1 \u0e23\u0e31\u0e28\u0e21\u0e35\u0e2a\u0e48\u0e07\u0e02\u0e2d\u0e07\u0e2a\u0e32\u0e02\u0e32 Siam",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('name is Siam', () => pm.expect(body.name).to.eql('Siam'));",
+                  "pm.test('delivery_radius_km is 20', () => pm.expect(body.delivery_radius_km).to.eql(20));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/branches/{{branch_siam_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "branches",
+                "{{branch_siam_id}}"
+              ]
+            }
+          },
+          "description": "\u0e0a\u0e35\u0e49: delivery_radius_km = 20"
+        },
+        {
+          "name": "6.2 \u0e43\u0e1a\u0e40\u0e2a\u0e19\u0e2d\u0e23\u0e32\u0e04\u0e32 \u2014 \u0e04\u0e48\u0e32\u0e2a\u0e48\u0e07",
+          "description": "\u0e0a\u0e35\u0e49: \u0e1a\u0e23\u0e23\u0e17\u0e31\u0e14 Delivery and collection (up to 10 km) 200 \u0e1a\u0e32\u0e17 \u2705 \u0e04\u0e48\u0e32\u0e2a\u0e48\u0e07\u0e15\u0e32\u0e21\u0e0a\u0e48\u0e27\u0e07\u0e23\u0e30\u0e22\u0e30",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const delivery = body.lines.find(l => l.description.toLowerCase().includes('delivery'));",
+                  "pm.test('delivery line present', () => pm.expect(delivery).to.exist);",
+                  "pm.test('delivery amount is a string', () => pm.expect(delivery.amount.amount).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/quotations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "quotations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\", \"delivery_address\": \"123 Test Rd\", \"delivery_distance_km\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "6.3 \u0e08\u0e2d\u0e07\u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e2a\u0e48\u0e07\u0e23\u0e16 5 km \u2014 201",
+          "description": "\u0e0a\u0e35\u0e49: delivery_address \u0e16\u0e39\u0e01\u0e40\u0e01\u0e47\u0e1a\u0e43\u0e19\u0e01\u0e32\u0e23\u0e08\u0e2d\u0e07 \u2705 \u0e2a\u0e48\u0e07\u0e41\u0e25\u0e30\u0e23\u0e31\u0e1a\u0e04\u0e37\u0e19\u0e15\u0e32\u0e21\u0e17\u0e35\u0e48\u0e2d\u0e22\u0e39\u0e48",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('delivery_address present', () => pm.expect(body.delivery_address).to.be.a('string'));",
+                  "pm.test('delivery_distance_km present', () => pm.expect(body.delivery_distance_km).to.be.above(0));",
+                  "pm.collectionVariables.set('delivery_booking_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{fresh_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\", \"delivery_address\": \"456 Home Rd, Bangkok\", \"delivery_distance_km\": 5}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "6.4 \u0e2a\u0e48\u0e07\u0e44\u0e01\u0e25 25 km \u2014 409",
+          "description": "\u0e0a\u0e35\u0e49: \"exceeds the branch radius of 20 km\" \u2705 \u0e15\u0e23\u0e27\u0e08\u0e23\u0e31\u0e28\u0e21\u0e35",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('detail mentions radius', () => pm.expect(body.detail.toLowerCase()).to.include('radius'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{fresh_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/bookings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "bookings"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"pickup_branch_id\": {{branch_siam_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\", \"delivery_address\": \"Far Place\", \"delivery_distance_km\": 25}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "\u0e02\u0e49\u0e2d 4 \u2014 Waitlist (\u0e04\u0e34\u0e27\u0e23\u0e2d)",
+      "item": [
+        {
+          "name": "4.1 SUV \u0e40\u0e15\u0e47\u0e21 \u2014 \u0e27\u0e48\u0e32\u0e07 0",
+          "description": "\u0e0a\u0e35\u0e49: SUV free_count = 0 \u0e40\u0e1e\u0e23\u0e32\u0e30 Alpha \u0e08\u0e2d\u0e07\u0e04\u0e31\u0e19\u0e40\u0e14\u0e35\u0e22\u0e27\u0e44\u0e1b\u0e41\u0e25\u0e49\u0e27",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const classes = pm.response.json();",
+                  "const suv = classes.find(c => c.name === 'SUV');",
+                  "pm.test('SUV present', () => pm.expect(suv).to.exist);",
+                  "pm.test('SUV free_count is 0', () => pm.expect(suv.free_count).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demo_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_3}}&end_date={{in_10}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "availability"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "{{in_3}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{in_10}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.2 \u0e40\u0e02\u0e49\u0e32\u0e04\u0e34\u0e27 Economy \u0e17\u0e35\u0e48\u0e22\u0e31\u0e07\u0e27\u0e48\u0e32\u0e07 \u2014 409",
+          "description": "\u0e0a\u0e35\u0e49: 409 \u2705 \u0e40\u0e02\u0e49\u0e32\u0e04\u0e34\u0e27\u0e44\u0e14\u0e49\u0e40\u0e09\u0e1e\u0e32\u0e30\u0e23\u0e38\u0e48\u0e19\u0e17\u0e35\u0e48\u0e40\u0e15\u0e47\u0e21",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('detail mentions free cars', () => pm.expect(body.detail.toLowerCase()).to.include('free'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{fresh_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "waitlist_entries"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_economy_id}}, \"start_date\": \"{{in_11}}\", \"end_date\": \"{{in_12}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "4.3 Fresh \u0e40\u0e02\u0e49\u0e32\u0e04\u0e34\u0e27 SUV \u2014 \u0e25\u0e33\u0e14\u0e31\u0e1a 3",
+          "description": "\u0e0a\u0e35\u0e49: position = 3 (Beta 1, Gamma 2) FIFO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('position is 3', () => pm.expect(body.position).to.eql(3));",
+                  "pm.test('state is waiting', () => pm.expect(body.state).to.eql('waiting'));",
+                  "pm.collectionVariables.set('waitlist_entry_fresh_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{fresh_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "waitlist_entries"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicle_class_id\": {{vc_suv_id}}, \"start_date\": \"{{in_3}}\", \"end_date\": \"{{in_10}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "4.4 Alpha \u0e22\u0e01\u0e40\u0e25\u0e34\u0e01 \u2014 204",
+          "description": "\u0e21\u0e35\u0e23\u0e16\u0e27\u0e48\u0e32\u0e07\u0e41\u0e25\u0e49\u0e27 \u0e23\u0e30\u0e1a\u0e1a\u0e43\u0e2b\u0e49\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e04\u0e19\u0e41\u0e23\u0e01\u0e43\u0e19\u0e04\u0e34\u0e27\u0e17\u0e31\u0e19\u0e17\u0e35",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{alpha_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings/{{alpha_booking_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "bookings",
+                "{{alpha_booking_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.5 Beta \u0e44\u0e14\u0e49\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e01\u0e48\u0e2d\u0e19 \u2014 claimed",
+          "description": "\u0e0a\u0e35\u0e49: state = claimed \u0e41\u0e25\u0e30 claim_expires_at \u2705 FIFO \u2705 \u0e08\u0e33\u0e01\u0e31\u0e14\u0e40\u0e27\u0e25\u0e32",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const entries = pm.response.json();",
+                  "pm.test('beta state is claimed', () => pm.expect(entries[0].state).to.eql('claimed'));",
+                  "pm.test('offered_at present', () => pm.expect(entries[0].offered_at).to.be.a('string'));",
+                  "pm.test('claim_expires_at present', () => pm.expect(entries[0].claim_expires_at).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{beta_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.6 Beta \u0e1b\u0e0f\u0e34\u0e40\u0e2a\u0e18 \u2014 204",
+          "description": "\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e2a\u0e48\u0e07\u0e15\u0e48\u0e2d\u0e04\u0e19\u0e16\u0e31\u0e14\u0e44\u0e1b",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('state is declined', () => pm.expect(body.state).to.eql('declined'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{beta_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_beta_id}}/claim",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries",
+                "{{waitlist_entry_beta_id}}",
+                "claim"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.7 Gamma \u0e44\u0e14\u0e49\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e15\u0e48\u0e2d \u2014 claimed",
+          "description": "\u0e0a\u0e35\u0e49: Gamma state = claimed \u2705 \u0e2a\u0e48\u0e07\u0e15\u0e48\u0e2d\u0e04\u0e19\u0e16\u0e31\u0e14\u0e44\u0e1b",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const entries = pm.response.json();",
+                  "pm.test('gamma state is claimed', () => pm.expect(entries[0].state).to.eql('claimed'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gamma_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/waitlist_entries",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.8 Gamma \u0e44\u0e14\u0e49\u0e41\u0e08\u0e49\u0e07\u0e40\u0e15\u0e37\u0e2d\u0e19 \u2014 waitlist_offer",
+          "description": "\u0e0a\u0e35\u0e49: kind = waitlist_offer \u0e23\u0e30\u0e1a\u0e38\u0e23\u0e38\u0e48\u0e19 \u0e27\u0e31\u0e19\u0e17\u0e35\u0e48 \u0e41\u0e25\u0e30\u0e40\u0e2a\u0e49\u0e19\u0e15\u0e32\u0e22 \u2705 \u0e41\u0e08\u0e49\u0e07\u0e40\u0e15\u0e37\u0e2d\u0e19\u0e04\u0e19\u0e17\u0e35\u0e48\u0e44\u0e14\u0e49\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const offer = pm.response.json().find(n => n.kind === 'waitlist_offer');",
+                  "pm.test('gamma was notified of the offer', () => pm.expect(offer).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gamma_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4.9 Gamma \u0e43\u0e0a\u0e49\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c\u0e08\u0e2d\u0e07 \u2014 201",
+          "description": "\u0e0a\u0e35\u0e49: \u0e44\u0e14\u0e49\u0e01\u0e32\u0e23\u0e08\u0e2d\u0e07\u0e08\u0e23\u0e34\u0e07 \u0e23\u0e38\u0e48\u0e19\u0e41\u0e25\u0e30\u0e27\u0e31\u0e19\u0e17\u0e35\u0e48\u0e21\u0e32\u0e08\u0e32\u0e01\u0e04\u0e34\u0e27 \u0e44\u0e21\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e2a\u0e48\u0e07\u0e43\u0e2b\u0e21\u0e48",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('returns a booking', () => pm.expect(body).to.have.property('start_date'));",
+                  "pm.test('vehicle_class is SUV', () => pm.expect(body.vehicle_class.name).to.eql('SUV'));",
+                  "pm.collectionVariables.set('claim_booking_id', body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gamma_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/waitlist_entries/{{waitlist_entry_gamma_id}}/claim",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "waitlist_entries",
+                "{{waitlist_entry_gamma_id}}",
+                "claim"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pickup_branch_id\": {{branch_siam_id}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -110,6 +110,11 @@ Import `rental-car-service.postman_collection.json` into Postman. Run the folder
 16. **15 — Waitlist & Claims** — full FIFO chain: alpha cancels → beta gets offered → beta declines → gamma gets offered → gamma converts. Negative cases: booking a full class, joining a non-full class, converting a claim twice.
 17. **16 — Notifications** — list the demo user's seeded notifications (newest first), mark one read (idempotent), reach for another user's notification (404).
 
+For the live demo of round two, `rental-car-service.demo-time.postman_collection.json` is a
+trimmed, separate collection: its own 00 — Setup, then one folder per requirement (7, 5, 6,
+4), each request's description saying what to point at. It needs the seed untouched by
+folders 09–16 of the main collection; running folders 01–08 first is fine.
+
 The base URL is a collection variable (`base_url`, default `http://localhost:8000`). All dates are computed by a collection-level pre-request script and are never hard-coded, so the collection does not go stale.
 
 ### The one divergence from the original brief
