@@ -1003,7 +1003,7 @@
       "item": [
         {
           "name": "7.1 \u0e23\u0e16\u0e27\u0e48\u0e32\u0e07\u0e0a\u0e48\u0e27\u0e07\u0e1b\u0e01\u0e15\u0e34 \u2014 Economy 3",
-          "description": "\u0e0a\u0e35\u0e49: Economy free_count = 3",
+          "description": "\u0e0a\u0e35\u0e49: Economy free_count = 3 \u0e0a\u0e48\u0e27\u0e07\u0e17\u0e35\u0e48\u0e44\u0e21\u0e48\u0e21\u0e35\u0e43\u0e04\u0e23\u0e08\u0e2d\u0e07\u0e41\u0e25\u0e30\u0e44\u0e21\u0e48\u0e21\u0e35\u0e23\u0e16\u0e0b\u0e48\u0e2d\u0e21 (\u0e27\u0e31\u0e19\u0e17\u0e35\u0e48 +30 \u0e16\u0e36\u0e07 +31 \u0e44\u0e21\u0e48\u0e21\u0e35 request \u0e44\u0e2b\u0e19\u0e43\u0e19\u0e17\u0e31\u0e49\u0e07\u0e2a\u0e2d\u0e07 collection \u0e08\u0e2d\u0e07\u0e0a\u0e48\u0e27\u0e07\u0e19\u0e35\u0e49)",
           "event": [
             {
               "listen": "test",
@@ -1011,11 +1011,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "const classes = pm.response.json();",
-                  "pm.test('returns array', () => pm.expect(classes).to.be.an('array'));",
-                  "const economy = classes.find(c => c.name === 'Economy');",
-                  "pm.test('Economy present', () => pm.expect(economy).to.exist);",
-                  "pm.test('Economy has free cars', () => pm.expect(economy.free_count).to.be.above(0));"
+                  "const economy = pm.response.json().find(c => c.name === 'Economy');",
+                  "pm.test('Economy: all 3 cars free', () => pm.expect(economy.free_count).to.eql(3));"
                 ]
               }
             }
@@ -1029,7 +1026,7 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_11}}&end_date={{in_12}}",
+              "raw": "{{base_url}}/providers/{{provider_id}}/availability?start_date={{in_30}}&end_date={{in_31}}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1041,11 +1038,11 @@
               "query": [
                 {
                   "key": "start_date",
-                  "value": "{{in_11}}"
+                  "value": "{{in_30}}"
                 },
                 {
                   "key": "end_date",
-                  "value": "{{in_12}}"
+                  "value": "{{in_31}}"
                 }
               ]
             }
@@ -1061,9 +1058,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "const classes = pm.response.json();",
-                  "const economy = classes.find(c => c.name === 'Economy');",
-                  "pm.test('Economy free_count reduced by blackout', () => pm.expect(economy.free_count).to.be.below(3));"
+                  "const economy = pm.response.json().find(c => c.name === 'Economy');",
+                  "pm.test('Economy: 2 free, one car in maintenance', () => pm.expect(economy.free_count).to.eql(2));"
                 ]
               }
             }
